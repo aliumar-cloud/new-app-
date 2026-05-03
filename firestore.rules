@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { 
+      return isSignedIn() && (
+        request.auth.token.email_verified == true || 
+        request.auth.token.email == 'aliumar@gmail.com'
+      ); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function affectedKeys() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'aliumar@gmail.com' || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+    
+    function isStaff() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'aliumar@gmail.com' || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['staff', 'admin']))
+      ); 
+    }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Validations ---
+
+    function isValidUser(data, userId) {
+      return (data.uid == userId || isAdmin())
+        && data.email is string && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() <= 200
+        && data.role in ['admin', 'staff']
+        && (!('publicKey' in data) || data.publicKey == null || data.publicKey is map)
+        && (data.keys().hasAll(['uid', 'email', 'role']));
+    }
+
+    function isValidVoter(data) {
+      return isValidId(data.voterId)
+        && data.fullName is string && data.fullName.size() <= 200
+        && data.address is string && data.address.size() <= 500
+        && data.phone is string && data.phone.size() <= 50
+        && data.districtId is string && data.districtId.size() <= 128
+        && data.supportLevel in ['strong_support', 'lean_support', 'undecided', 'lean_opposition', 'strong_opposition']
+        && data.votedStatus is bool
+        && (!('latitude' in data) || data.latitude == null || data.latitude is number)
+        && (!('longitude' in data) || data.longitude == null || data.longitude is number)
+        && (!('pollingStation' in data) || data.pollingStation == null || (data.pollingStation is string && data.pollingStation.size() <= 200))
+        && (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 800000))
+        && (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 2000))
+        && (!('updatedBy' in data) || data.updatedBy == null || (data.updatedBy is string && data.updatedBy.size() <= 128))
+        && (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp)
+        && (data.keys().hasAll(['voterId', 'fullName', 'address', 'phone', 'districtId', 'supportLevel', 'votedStatus']));
+    }
+
+    // --- Matches ---
+
+    // Connection Test
+    match /_connection_test_/ping {
+      allow get: if true;
+    }
+
+    // USERS Collection
+    match /users/{userId} {
+      allow get: if isEmailVerified() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      
+      allow create: if isEmailVerified() && (
+        (userId == request.auth.uid && incoming().role == 'staff') ||
+        isAdmin()
+      ) && isValidUser(incoming(), userId);
+        
+      allow update: if isEmailVerified() && (
+        isAdmin() || 
+        (userId == request.auth.uid && !affectedKeys().hasAny(['role', 'uid', 'email']))
+      ) && isValidUser(incoming(), userId);
+    }
+
+    // VOTERS Collection
+    match /voters/{voterId} {
+      allow get: if isStaff();
+      allow list: if isStaff();
+      
+      allow create: if isStaff() && isValidVoter(incoming());
+      
+      allow update: if isStaff() && isValidVoter(incoming()) && (
+        isAdmin() || 
+        // Staff can update specific fields
+        affectedKeys().hasOnly(['supportLevel', 'votedStatus', 'notes', 'updatedBy', 'updatedAt', 'fullName', 'address', 'phone', 'photoUrl', 'pollingStation', 'latitude', 'longitude', 'districtId'])
+      );
+      
+      allow delete: if isStaff();
+    }
+
+    // DISTRICTS Collection
+    match /districts/{districtId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // CONFIG Collection
+    match /config/global {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+    // CHATS Collection
+    match /chats/{chatId} {
+      allow get: if isStaff() && request.auth.uid in resource.data.participants;
+      allow list: if isStaff() && request.auth.uid in resource.data.participants;
+      
+      allow create: if isStaff() && (request.auth.uid in incoming().participants);
+      allow update: if isStaff() && (request.auth.uid in existing().participants);
+      
+      match /messages/{messageId} {
+        allow read: if isStaff() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+        allow create: if isStaff() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants) && incoming().senderId == request.auth.uid;
+      }
+    }
+  }
+}

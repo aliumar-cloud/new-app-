@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "User": {
+      "title": "Campaign User",
+      "description": "User profile for campaign staff and administrators",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] },
+        "districtId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastActive": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Voter": {
+      "title": "Voter Record",
+      "description": "Individual voter data for campaign tracking",
+      "type": "object",
+      "properties": {
+        "voterId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "districtId": { "type": "string" },
+        "supportLevel": { "type": "string", "enum": ["strong_support", "lean_support", "undecided", "lean_opposition", "strong_opposition"] },
+        "votedStatus": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["voterId", "fullName", "districtId", "supportLevel", "votedStatus"]
+    },
+    "District": {
+      "title": "Election District",
+      "description": "Geographical or organizational voting unit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "managerUid": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "CampaignConfig": {
+      "title": "Campaign Configuration",
+      "description": "Global settings for the campaign",
+      "type": "object",
+      "properties": {
+        "electionName": { "type": "string" },
+        "electionDate": { "type": "string", "format": "date" },
+        "targetVotes": { "type": "integer" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Private user information and roles"
+    },
+    "/voters/{voterId}": {
+      "schema": "Voter",
+      "description": "Consolidated list of voters being managed"
+    },
+    "/districts/{districtId}": {
+      "schema": "District",
+      "description": "Districts or regions"
+    },
+    "/config/global": {
+      "schema": "CampaignConfig",
+      "description": "Global campaign settings"
+    }
+  }
+}

@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { 
+      return isEmailVerified() && (
+        getUserData().role == 'admin' || 
+        request.auth.token.email == 'aliumar@gmail.com'
+      );
+    }
+    function isStaff() { return isEmailVerified() && (getUserData().role == 'staff' || isAdmin()); }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Validations ---
+
+    function isValidUser(data) {
+      return data.uid == request.auth.uid
+        && data.email is string
+        && data.displayName is string
+        && data.role in ['admin', 'staff']
+        && data.keys().hasAll(['uid', 'email', 'role'])
+        && data.keys().size() >= 3;
+    }
+
+    function isValidVoter(data) {
+      return isValidId(data.voterId)
+        && data.fullName is string && data.fullName.size() <= 100
+        && data.districtId is string && data.districtId.size() <= 64
+        && data.supportLevel in ['strong_support', 'lean_support', 'undecided', 'lean_opposition', 'strong_opposition']
+        && data.votedStatus is bool
+        && (data.updatedAt == request.time || !data.keys().contains('updatedAt'))
+        && data.keys().hasAll(['voterId', 'fullName', 'districtId', 'supportLevel', 'votedStatus']);
+    }
+
+    // --- Matches ---
+
+    // USERS Collection
+    match /users/{userId} {
+      allow get: if isEmailVerified() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      
+      // User can create their own profile as 'staff' by default if not exists
+      allow create: if isEmailVerified() && userId == request.auth.uid 
+        && incoming().role == 'staff' 
+        && isValidUser(incoming());
+        
+      // Only Admins can promote/demote
+      allow update: if isAdmin() && isValidUser(incoming());
+    }
+
+    // VOTERS Collection
+    match /voters/{voterId} {
+      // Secure list: users can only list if they are verified staff
+      allow read: if isStaff();
+      
+      allow create: if isAdmin() && isValidVoter(incoming());
+      
+      allow update: if (isStaff() && isValidVoter(incoming()) && (
+        // Action: Field report (staff can only update supportLevel, votedStatus, notes)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['supportLevel', 'votedStatus', 'notes', 'updatedBy', 'updatedAt']))
+        // Action: Admin full correction
+        || isAdmin()
+      ));
+      
+      allow delete: if isAdmin();
+    }
+
+    // DISTRICTS Collection
+    match /districts/{districtId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // CONFIG Collection
+    match /config/global {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+  }
+}

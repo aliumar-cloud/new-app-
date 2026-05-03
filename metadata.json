@@ -1,0 +1,6 @@
+{
+  "name": "Vote Adey",
+  "description": "A high-security dashboard for election campaign vote tracking, voter verification, and real-time analytics.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": []
+}
