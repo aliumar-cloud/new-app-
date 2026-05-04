@@ -24,25 +24,34 @@ import {
   Camera,
   Trash2,
   Grid,
-  List
+  List,
+  Users
 } from 'lucide-react';
 import { db, storage, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, query, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Voter, SupportLevel } from '../types';
+import { Voter, SupportLevel, CampaignUser } from '../types';
 import { useAuth } from '../App';
 
 export default function VoterList({ onRegisterClick }: { onRegisterClick: () => void, key?: string }) {
   const { user } = useAuth();
   const [voters, setVoters] = useState<Voter[]>([]);
+  const [usersInfo, setUsersInfo] = useState<Record<string, string>>({});
+  const [usersList, setUsersList] = useState<CampaignUser[]>([]);
   const [search, setSearch] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState<SupportLevel | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'voted' | 'not_voted' | 'all'>('all');
+  const [groupBy, setGroupBy] = useState<'station' | 'assigned' | 'address'>('address');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAssignMode, setBulkAssignMode] = useState(false);
+  const [bulkAssignUser, setBulkAssignUser] = useState('');
+  const [assigning, setAssigning] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   useEffect(() => {
     const qV = query(collection(db, 'voters'));
@@ -55,8 +64,21 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
       setLoading(false);
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'voters'));
 
+    const unsubscribeU = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const uInfo: Record<string, string> = {};
+      const uList: CampaignUser[] = [];
+      snapshot.forEach(doc => {
+        const u = doc.data() as CampaignUser;
+        uInfo[doc.id] = u.displayName || u.email;
+        uList.push(u);
+      });
+      setUsersInfo(uInfo);
+      setUsersList(uList);
+    });
+
     return () => {
       unsubscribeV();
+      unsubscribeU();
     };
   }, []);
 
@@ -84,11 +106,22 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
   };
 
   const groupedVoters = filteredVoters.reduce((acc, voter) => {
-    const station = voter.pollingStation || 'Unassigned';
-    if (!acc[station]) acc[station] = [];
-    acc[station].push(voter);
+    let groupKey = 'Unassigned';
+    if (groupBy === 'station') {
+      groupKey = voter.pollingStation || 'Unassigned';
+    } else if (groupBy === 'address') {
+      groupKey = 'All Voters (Sorted by Address)';
+    } else {
+      groupKey = voter.assignedTo && usersInfo[voter.assignedTo] ? usersInfo[voter.assignedTo] : 'Unassigned';
+    }
+    if (!acc[groupKey]) acc[groupKey] = [];
+    acc[groupKey].push(voter);
     return acc;
   }, {} as Record<string, Voter[]>);
+
+  if (groupBy === 'address' && groupedVoters['All Voters (Sorted by Address)']) {
+    groupedVoters['All Voters (Sorted by Address)'].sort((a, b) => (a.address || '').localeCompare(b.address || ''));
+  }
 
   const handleToggleSupport = async (e: React.MouseEvent, voter: Voter) => {
     e.stopPropagation();
@@ -115,6 +148,77 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
     }
   };
 
+  const handleToggleOppose = async (e: React.MouseEvent, voter: Voter) => {
+    e.stopPropagation();
+    try {
+      const newSupportLevel = voter.supportLevel === 'strong_opposition' ? 'undecided' : 'strong_opposition';
+      await updateDoc(doc(db, 'voters', voter.voterId), {
+        supportLevel: newSupportLevel,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `voters/${voter.voterId}`);
+    }
+  };
+
+  const handleToggleNeutral = async (e: React.MouseEvent, voter: Voter) => {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, 'voters', voter.voterId), {
+        supportLevel: 'undecided',
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `voters/${voter.voterId}`);
+    }
+  };
+
+  const toggleSelection = (e: React.MouseEvent, voterId: string) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(voterId)) newSet.delete(voterId);
+      else newSet.add(voterId);
+      return newSet;
+    });
+  };
+
+  const selectAllInGroup = (e: React.MouseEvent, groupVoters: Voter[]) => {
+    e.stopPropagation();
+    const allSelected = groupVoters.every(v => selectedIds.has(v.voterId));
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      groupVoters.forEach(v => {
+        if (allSelected) newSet.delete(v.voterId);
+        else newSet.add(v.voterId);
+      });
+      return newSet;
+    });
+  };
+
+  const handleBulkAssign = async () => {
+    if (selectedIds.size === 0 || !bulkAssignUser) return;
+    setAssigning(true);
+    try {
+      const batch = writeBatch(db);
+      selectedIds.forEach(id => {
+        batch.update(doc(db, 'voters', id), {
+          assignedTo: bulkAssignUser,
+          updatedAt: serverTimestamp(),
+          updatedBy: user?.uid
+        });
+      });
+      await batch.commit();
+      setSelectedIds(new Set());
+      setBulkAssignMode(false);
+      setBulkAssignUser('');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'voters');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header & Search */}
@@ -129,34 +233,80 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <div className="flex border border-[#004A8F] dark:border-[#333333] rounded-2xl overflow-hidden bg-[#003B73] dark:bg-[#1f1f1f]">
+        <div className="flex flex-wrap gap-2 justify-end">
+          <div className="flex shrink-0 border border-[#004A8F] dark:border-[#333333] rounded-2xl overflow-hidden bg-[#003B73] dark:bg-[#1f1f1f]">
             <button 
               onClick={() => setViewMode('list')}
               className={`px-4 py-3 flex items-center justify-center transition-all ${viewMode === 'list' ? 'bg-[#002B5B] dark:bg-[#141414] text-white dark:text-gray-100' : 'text-blue-300 dark:text-gray-400 hover:text-blue-200 dark:text-gray-300'}`}
+              title="List View"
             >
               <List className="w-4 h-4" />
             </button>
             <button 
               onClick={() => setViewMode('grid')}
               className={`px-4 py-3 flex items-center justify-center transition-all ${viewMode === 'grid' ? 'bg-[#002B5B] dark:bg-[#141414] text-white dark:text-gray-100' : 'text-blue-300 dark:text-gray-400 hover:text-blue-200 dark:text-gray-300'}`}
+              title="Photo View"
             >
               <Grid className="w-4 h-4" />
             </button>
           </div>
-          <button 
-            onClick={onRegisterClick}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#DAA520] text-white dark:text-gray-100 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest hover:bg-[#B8860B] shadow-lg shadow-[#DAA520]/20"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Record</span>
-          </button>
+          
+          {(user?.role === 'admin' || user?.role === 'leader') && (
+            <div className="relative shrink-0">
+              {user?.role === 'admin' ? (
+                <>
+                  <button 
+                    onClick={() => setShowAddMenu(!showAddMenu)}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-[#DAA520] text-white dark:text-gray-100 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest hover:bg-[#B8860B] shadow-lg shadow-[#DAA520]/20 min-w-max"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span className="hidden sm:inline">Add Options</span>
+                    <ChevronDown className="w-3 h-3 ml-1 opacity-70" />
+                  </button>
+                  
+                  {showAddMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-2xl shadow-xl overflow-hidden z-30 flex flex-col">
+                      <button 
+                        onClick={() => {
+                          setShowAddMenu(false);
+                          onRegisterClick();
+                        }}
+                        className="flex items-center gap-3 px-4 py-3 text-left w-full text-xs font-bold uppercase tracking-widest hover:bg-[#003B73] dark:hover:bg-[#1f1f1f] transition-all text-white dark:text-gray-100 border-b border-[#004A8F] dark:border-[#333333]"
+                      >
+                        <UserPlus className="w-4 h-4 text-[#DAA520]" />
+                        Add Record
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setShowAddMenu(false);
+                          setBulkAssignMode(!bulkAssignMode);
+                        }}
+                        className={`flex items-center gap-3 px-4 py-3 text-left w-full text-xs font-bold uppercase tracking-widest hover:bg-[#003B73] dark:hover:bg-[#1f1f1f] transition-all ${bulkAssignMode ? 'text-[#FFD700]' : 'text-white dark:text-gray-100'}`}
+                      >
+                        <Users className={`w-4 h-4 ${bulkAssignMode ? 'text-[#FFD700]' : 'text-blue-300'}`} />
+                        Bulk Assign
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <button 
+                  onClick={onRegisterClick}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-[#DAA520] text-white dark:text-gray-100 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest hover:bg-[#B8860B] shadow-lg shadow-[#DAA520]/20 min-w-max"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Add Voter</span>
+                </button>
+              )}
+            </div>
+          )}
+          
           <button 
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl transition-all text-xs font-bold uppercase tracking-widest ${showFilters ? 'bg-slate-900 border-slate-900 text-white dark:text-gray-100' : 'border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'}`}
+            className={`flex items-center shrink-0 justify-center gap-2 px-6 py-3 border rounded-2xl transition-all text-xs font-bold uppercase tracking-widest min-w-max ${showFilters ? 'bg-slate-900 border-slate-900 text-white dark:text-gray-100' : 'border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'}`}
           >
             <Filter className="w-4 h-4" />
-            {showFilters ? 'Hide Filters' : 'Filters'}
+            <span className="hidden sm:inline">{showFilters ? 'Hide Filters' : 'Filters'}</span>
           </button>
         </div>
       </div>
@@ -214,6 +364,29 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                   </button>
                 </div>
               </div>
+              <div className="space-y-2 col-span-1 border-t md:border-t-0 md:pl-4 border-[#004A8F] dark:border-[#333333] pt-4 md:pt-0">
+                <label className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">Group By</label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button 
+                    onClick={() => setGroupBy('station')}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'station' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                  >
+                    POLLING STATION
+                  </button>
+                  <button 
+                    onClick={() => setGroupBy('address')}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'address' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                  >
+                    ADDRESS
+                  </button>
+                  <button 
+                    onClick={() => setGroupBy('assigned')}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'assigned' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                  >
+                    ASSIGNED LEADER
+                  </button>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -223,10 +396,8 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
       <div className={viewMode === 'list' ? "bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-3xl overflow-hidden shadow-sm" : ""}>
         {viewMode === 'list' && (
           <div className="hidden md:grid grid-cols-12 gap-4 px-8 py-5 border-b border-[#004A8F] dark:border-[#333333] bg-[#002B5B] dark:bg-[#141414]">
-            <div className="col-span-12 md:col-span-5 text-[10px] uppercase font-bold tracking-[0.2em] text-blue-300 dark:text-gray-400 font-mono">IDENT_ENTITY</div>
-            <div className="col-span-12 md:col-span-3 text-[10px] uppercase font-bold tracking-[0.2em] text-blue-300 dark:text-gray-400 font-mono">SENTIMENT</div>
-            <div className="col-span-12 md:col-span-2 text-[10px] uppercase font-bold tracking-[0.2em] text-blue-300 dark:text-gray-400 font-mono text-center">PROTOCOL</div>
-            <div className="col-span-12 md:col-span-2"></div>
+            <div className="col-span-12 md:col-span-7 text-[10px] uppercase font-bold tracking-[0.2em] text-blue-300 dark:text-gray-400 font-mono">IDENT_ENTITY</div>
+            <div className="col-span-12 md:col-span-5 text-[10px] uppercase font-bold tracking-[0.2em] text-blue-300 dark:text-gray-400 font-mono text-right">ACTIONS</div>
           </div>
         )}
 
@@ -234,33 +405,55 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
           <div className="max-h-[600px] overflow-auto">
             {(Object.entries(groupedVoters) as [string, Voter[]][]).map(([station, groupVoters]) => (
               <div key={station}>
-                <button 
-                  onClick={() => toggleGroup(station)} 
+                <div 
                   className="w-full flex items-center justify-between px-6 py-3 bg-[#003B73] dark:bg-[#1f1f1f] border-b border-[#004A8F] dark:border-[#333333] sticky top-0 z-10"
                 >
-                  <span className="text-xs font-bold text-white dark:text-gray-100 uppercase tracking-widest flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
-                    {station}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    {bulkAssignMode && (
+                      <input
+                        type="checkbox"
+                        checked={groupVoters.every(v => selectedIds.has(v.voterId)) && groupVoters.length > 0}
+                        onChange={(e) => selectAllInGroup(e as any, groupVoters)}
+                        className="w-4 h-4 accent-[#DAA520] cursor-pointer"
+                      />
+                    )}
+                    <button onClick={() => toggleGroup(station)} className="text-xs font-bold text-white dark:text-gray-100 uppercase tracking-widest flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+                      {station}
+                    </button>
+                  </div>
                   <div className="flex items-center gap-4">
                     <span className="text-[10px] text-blue-300 dark:text-gray-400 font-mono">{groupVoters.length} RECORDS</span>
-                    {collapsedGroups.has(station) ? <ChevronRight className="w-4 h-4 text-blue-300 dark:text-gray-400" /> : <ChevronDown className="w-4 h-4 text-blue-300 dark:text-gray-400" />}
+                    <button onClick={() => toggleGroup(station)}>
+                      {collapsedGroups.has(station) ? <ChevronRight className="w-4 h-4 text-blue-300 dark:text-gray-400" /> : <ChevronDown className="w-4 h-4 text-blue-300 dark:text-gray-400" />}
+                    </button>
                   </div>
-                </button>
+                </div>
                 {!collapsedGroups.has(station) && (
                   <div className="divide-y divide-slate-50">
                     {groupVoters.map((voter) => (
                       <motion.div
                         key={voter.voterId}
-                        onClick={() => setSelectedVoter(voter)}
-                        className={`grid grid-cols-12 gap-2 md:gap-4 px-4 md:px-8 py-4 md:py-6 items-center cursor-pointer transition-all group border-l-4 border-b border-b-sky-100/50 ${
+                        onClick={() => user?.role === 'admin' ? setSelectedVoter(voter) : null}
+                        className={`grid grid-cols-12 gap-2 md:gap-4 px-4 md:px-8 py-4 md:py-6 items-center ${user?.role === 'admin' ? 'cursor-pointer' : ''} transition-all group border-l-4 border-b border-b-sky-100/50 ${
                           voter.votedStatus && voter.supportLevel === 'strong_support' ? 'bg-emerald-50/50 border-l-emerald-500 hover:bg-emerald-50' :
                           voter.votedStatus ? 'bg-[#003B73] dark:bg-[#1f1f1f]/80 border-l-slate-300 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]' :
                           voter.supportLevel === 'strong_support' ? 'bg-[#DAA520]/[0.02] border-l-[#DAA520] hover:bg-[#DAA520]/[0.05]' :
                           'bg-[#002B5B] dark:bg-[#141414] border-l-transparent hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'
                         }`}
                       >
-                        <div className="col-span-12 md:col-span-5 mb-2 md:mb-0 flex items-center gap-4">
+                        {bulkAssignMode && (
+                          <div className="col-span-1 flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(voter.voterId)}
+                              onChange={(e) => { e.stopPropagation(); toggleSelection(e as any, voter.voterId); }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-5 h-5 accent-[#DAA520] cursor-pointer"
+                            />
+                          </div>
+                        )}
+                        <div className={`${bulkAssignMode ? 'col-span-11 md:col-span-6' : 'col-span-12 md:col-span-7'} mb-2 md:mb-0 flex items-center gap-4`}>
                           <div className="w-10 h-10 rounded-full bg-[#FFD700] dark:bg-[#050505] overflow-hidden shrink-0 border border-[#004A8F] dark:border-[#333333]">
                             {voter.photoUrl ? (
                               <img src={voter.photoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -271,12 +464,21 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-white dark:text-gray-100 group-hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-colors truncate">{voter.fullName}</p>
-                            <p className="text-[10px] font-bold text-rose-500 uppercase mt-0.5">{voter.voterId}</p>
-                            <div className="flex items-center gap-2 mt-0.5 opacity-60">
-                              <MapPin className="w-3 h-3 shrink-0 text-blue-300 dark:text-gray-400" />
-                              <p className="text-[10px] truncate uppercase font-medium">{voter.address}</p>
+                            <div className="flex items-center gap-3 w-full">
+                              <p className="text-sm font-bold text-white dark:text-gray-100 group-hover:text-[#DAA520] dark:hover:text-[#FFD700] transition-colors truncate shrink-0">{voter.fullName}</p>
+                              {voter.address && (
+                                <p className="text-sm font-bold text-[#DAA520] dark:text-[#FFD700] uppercase truncate text-right flex-1">{voter.address}</p>
+                              )}
                             </div>
+                            <p className="text-sm font-bold text-rose-500 uppercase mt-0.5">{voter.voterId}</p>
+                            {voter.assignedTo && usersInfo[voter.assignedTo] && (
+                              <div className="flex items-center gap-1 mt-1 opacity-70">
+                                <User className="w-3 h-3 text-emerald-500" />
+                                <span className="text-[9px] uppercase font-bold text-emerald-500">
+                                  {usersInfo[voter.assignedTo]}
+                                </span>
+                              </div>
+                            )}
                             {voter.phone && (
                               <a href={`tel:${voter.phone}`} target="_top" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold tracking-wider text-[#DAA520] dark:text-[#FFD700] hover:text-[#B8860B] w-max bg-[#DAA520]/5 px-2 py-1 rounded-full border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 transition-colors">
                                 <Phone className="w-3 h-3" />
@@ -286,31 +488,34 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                           </div>
                         </div>
 
-                        <div className="col-span-6 md:col-span-3">
-                          <button onClick={(e) => handleToggleSupport(e, voter)} className="hover:opacity-80 transition-opacity bg-transparent border-0 p-0 m-0 w-auto text-left">
-                            <SentimentBadge level={voter.supportLevel} />
-                          </button>
-                        </div>
-
-                        <div className="col-span-4 md:col-span-2 flex justify-center">
-                          <button onClick={(e) => handleToggleVoted(e, voter)} className="hover:opacity-80 transition-opacity border-0 p-0 m-0 bg-transparent flex items-center">
-                            {voter.votedStatus ? (
-                              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 shadow-sm">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                <span className="text-[9px] font-bold text-emerald-600 uppercase">SYNCED</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333]">
-                                <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                                <span className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-tighter">PENDING</span>
-                              </div>
-                            )}
-                          </button>
-                        </div>
-
-                        <div className="col-span-2 md:col-span-2 flex justify-end">
-                          <div className="w-8 h-8 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                            <ChevronRight className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+                        <div className="col-span-12 md:col-span-5 flex flex-col items-end justify-center gap-2 relative z-10 w-full">
+                          <div className="flex gap-1 w-full max-w-[280px] bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-1.5 rounded-2xl shadow-inner ml-auto">
+                            <button 
+                              onClick={(e) => handleToggleOppose(e, voter)} 
+                              className={`flex-1 py-2 px-1 rounded-xl text-[9px] font-bold uppercase transition-all flex flex-col items-center justify-center gap-1 ${voter.supportLevel === 'strong_opposition' ? 'bg-red-500 text-white shadow-md transform scale-105' : 'text-blue-300 dark:text-gray-400 hover:bg-red-500/10 hover:text-red-400'}`}
+                            >
+                              Oppose
+                            </button>
+                            <button 
+                              onClick={(e) => handleToggleNeutral(e, voter)} 
+                              className={`flex-1 py-2 px-1 rounded-xl text-[9px] font-bold uppercase transition-all flex flex-col items-center justify-center gap-1 ${voter.supportLevel === 'undecided' ? 'bg-[#94A3B8] text-white shadow-md transform scale-105' : 'text-blue-300 dark:text-gray-400 hover:bg-slate-500/10 hover:text-slate-300'}`}
+                            >
+                              Neutral
+                            </button>
+                            <button 
+                              onClick={(e) => handleToggleSupport(e, voter)} 
+                              className={`flex-1 py-2 px-1 rounded-xl text-[9px] font-bold uppercase transition-all flex flex-col items-center justify-center gap-1 ${(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'bg-[#DAA520] dark:bg-[#FFD700] text-gray-900 shadow-md transform scale-105' : 'text-blue-300 dark:text-gray-400 hover:bg-[#DAA520]/10 hover:text-[#DAA520]'}`}
+                            >
+                              Support
+                            </button>
+                            <div className="w-[1px] bg-[#004A8F] dark:bg-[#333333] mx-1 my-2 rounded-full"></div>
+                            <button
+                              onClick={(e) => handleToggleVoted(e, voter)}
+                              className={`flex-1 py-2 px-1 rounded-xl text-[9px] font-bold uppercase transition-all flex flex-col items-center justify-center gap-1 ${voter.votedStatus ? 'bg-emerald-500 text-white shadow-md transform scale-105' : 'text-blue-300 dark:text-gray-400 hover:bg-emerald-500/10 hover:text-emerald-400'}`}
+                            >
+                              <Vote className="w-3 h-3 mb-0.5" />
+                              {voter.votedStatus ? 'Voted' : 'Vote'}
+                            </button>
                           </div>
                         </div>
                       </motion.div>
@@ -330,31 +535,52 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
           <div className="max-h-[600px] overflow-auto p-1 space-y-6">
             {(Object.entries(groupedVoters) as [string, Voter[]][]).map(([station, groupVoters]) => (
               <div key={station} className="space-y-4">
-                <button 
-                  onClick={() => toggleGroup(station + '_grid')} 
+                <div 
                   className="w-full flex items-center gap-3 px-2 py-1"
                 >
-                  {collapsedGroups.has(station + '_grid') ? <ChevronRight className="w-5 h-5 text-blue-300 dark:text-gray-400" /> : <ChevronDown className="w-5 h-5 text-blue-300 dark:text-gray-400" />}
-                  <span className="text-sm font-black text-white dark:text-gray-100 uppercase tracking-widest flex items-center gap-2">
+                  <button onClick={() => toggleGroup(station + '_grid')} >
+                    {collapsedGroups.has(station + '_grid') ? <ChevronRight className="w-5 h-5 text-blue-300 dark:text-gray-400" /> : <ChevronDown className="w-5 h-5 text-blue-300 dark:text-gray-400" />}
+                  </button>
+                  {bulkAssignMode && (
+                    <input
+                      type="checkbox"
+                      checked={groupVoters.every(v => selectedIds.has(v.voterId)) && groupVoters.length > 0}
+                      onChange={(e) => selectAllInGroup(e as any, groupVoters)}
+                      className="w-4 h-4 accent-[#DAA520] cursor-pointer"
+                    />
+                  )}
+                  <button onClick={() => toggleGroup(station + '_grid')} className="text-sm font-black text-white dark:text-gray-100 uppercase tracking-widest flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
                     {station}
-                  </span>
+                  </button>
                   <div className="h-px bg-[#004A8F] dark:bg-[#333333] flex-1 mx-4"></div>
                   <span className="text-[10px] text-blue-300 dark:text-gray-400 font-mono">{groupVoters.length} RECORDS</span>
-                </button>
+                </div>
                 {!collapsedGroups.has(station + '_grid') && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {groupVoters.map((voter) => (
                       <motion.div
                         key={voter.voterId}
-                        onClick={() => setSelectedVoter(voter)}
-                        className={`border rounded-3xl overflow-hidden shadow-sm hover:shadow-md cursor-pointer transition-all group flex flex-col ${
+                        onClick={() => bulkAssignMode ? toggleSelection({stopPropagation:()=>{}} as any, voter.voterId) : (user?.role === 'admin' ? setSelectedVoter(voter) : null)}
+                        className={`border rounded-3xl overflow-hidden shadow-sm hover:shadow-md ${user?.role === 'admin' || bulkAssignMode ? 'cursor-pointer' : ''} transition-all group flex flex-col relative ${
+                          bulkAssignMode && selectedIds.has(voter.voterId) ? 'ring-2 ring-[#DAA520] transform scale-[0.98]' : ''
+                        } ${
                           voter.votedStatus && voter.supportLevel === 'strong_support' ? 'bg-emerald-50/50 border-emerald-300 hover:border-emerald-400' :
                           voter.votedStatus ? 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] hover:border-[#004A8F] dark:border-[#333333]' :
                           voter.supportLevel === 'strong_support' ? 'bg-[#DAA520]/[0.05] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/30 dark:border-[#FFD700] dark:border-[#333333]/30 hover:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/50' :
                           'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] hover:border-sky-300 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'
                         }`}
                       >
+                        {bulkAssignMode && (
+                          <div className="absolute top-3 left-3 z-20">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(voter.voterId)}
+                              readOnly
+                              className="w-5 h-5 accent-[#DAA520]"
+                            />
+                          </div>
+                        )}
                         <div className="aspect-square bg-[#FFD700] dark:bg-[#050505] relative">
                           {voter.photoUrl ? (
                             <img src={voter.photoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -363,40 +589,63 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                               <User className="w-12 h-12" />
                             </div>
                           )}
-                          <div className="absolute top-3 right-3 flex flex-col gap-2">
-                            {voter.votedStatus && (
-                              <div className="bg-emerald-500 text-white dark:text-gray-100 p-1.5 rounded-full shadow-lg self-end">
-                                <CheckCircle2 className="w-4 h-4" />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleToggleVoted(e, voter); }}
+                            className={`absolute bottom-3 left-3 w-14 h-14 rounded-2xl shadow-xl flex flex-col items-center justify-center border-2 transition-all z-10 ${voter.votedStatus ? 'bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/20' : 'bg-[#002B5B]/80 dark:bg-[#141414]/90 backdrop-blur-sm border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:border-[#DAA520] hover:text-[#DAA520]'}`}
+                          >
+                             <Vote className="w-6 h-6 mb-1" />
+                             <span className="text-[8px] font-black uppercase leading-none">{voter.votedStatus ? 'VOTED' : 'VOTE'}</span>
+                          </button>
+                        </div>
+                        <div className="p-4 relative flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 w-full pr-12">
+                              <p className="text-sm font-bold text-white dark:text-gray-100 truncate group-hover:text-[#DAA520] dark:hover:text-[#FFD700] transition-colors shrink-0">{voter.fullName}</p>
+                              {voter.address && (
+                                <p className="text-sm font-bold text-[#DAA520] dark:text-[#FFD700] uppercase truncate flex-1 text-right">{voter.address}</p>
+                              )}
+                            </div>
+                            <p className="text-sm font-bold text-rose-500 uppercase mt-0.5">{voter.voterId}</p>
+                            {!voter.address && (
+                              <p className="text-[10px] text-blue-200 dark:text-gray-300 truncate mt-0.5">No address</p>
+                            )}
+                            {voter.assignedTo && usersInfo[voter.assignedTo] && (
+                              <div className="flex items-center gap-1 mt-1 opacity-70">
+                                <User className="w-3 h-3 text-emerald-500" />
+                                <span className="text-[9px] uppercase font-bold text-emerald-500">
+                                  {usersInfo[voter.assignedTo]}
+                                </span>
                               </div>
                             )}
+                            {voter.phone && (
+                              <a href={`tel:${voter.phone}`} target="_top" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold tracking-wider text-[#DAA520] dark:text-[#FFD700] hover:text-[#B8860B] w-max bg-[#DAA520]/5 px-2 py-1 rounded-full border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 transition-colors">
+                                <Phone className="w-3 h-3" />
+                                {voter.phone}
+                              </a>
+                            )}
                           </div>
-                        </div>
-                        <div className="p-4 flex-1 flex flex-col">
-                          <p className="text-sm font-bold text-white dark:text-gray-100 truncate group-hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-colors">{voter.fullName}</p>
-                          <p className="text-[10px] font-bold text-rose-500 uppercase mt-0.5">{voter.voterId}</p>
-                          <p className="text-[10px] text-blue-200 dark:text-gray-300 truncate mt-0.5">{voter.address || 'No address'}</p>
-                          {voter.phone && (
-                            <a href={`tel:${voter.phone}`} target="_top" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold tracking-wider text-[#DAA520] dark:text-[#FFD700] hover:text-[#B8860B] w-max bg-[#DAA520]/5 px-2 py-1 rounded-full border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 transition-colors">
-                              <Phone className="w-3 h-3" />
-                              {voter.phone}
-                            </a>
-                          )}
-                          <div className="mt-3">
-                            <SentimentBadge level={voter.supportLevel} />
-                          </div>
-                          <div className="mt-3 flex gap-2 w-full pt-3 border-t border-[#004A8F] dark:border-[#333333]">
-                            <button 
-                              onClick={(e) => handleToggleSupport(e, voter)} 
-                              className={`flex-1 py-1.5 rounded text-[8px] font-bold uppercase transition-colors border ${voter.supportLevel === 'strong_support' ? 'bg-[#DAA520] text-white dark:text-gray-100 border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]' : 'bg-[#003B73] dark:bg-[#1f1f1f] text-blue-200 dark:text-gray-300 border-[#004A8F] dark:border-[#333333] hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
-                            >
-                              Support
-                            </button>
-                            <button 
-                              onClick={(e) => handleToggleVoted(e, voter)} 
-                              className={`flex-1 py-1.5 rounded text-[8px] font-bold uppercase transition-colors border ${voter.votedStatus ? 'bg-emerald-500 text-white dark:text-gray-100 border-emerald-500' : 'bg-[#003B73] dark:bg-[#1f1f1f] text-blue-200 dark:text-gray-300 border-[#004A8F] dark:border-[#333333] hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
-                            >
-                              Voted
-                            </button>
+                          
+                          <div>
+                            <div className="mt-3 flex gap-1 w-full pt-3 border-t border-[#004A8F] dark:border-[#333333]">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleToggleOppose(e, voter); }} 
+                                className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${voter.supportLevel === 'strong_opposition' ? 'bg-red-500 text-white shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50'}`}
+                              >
+                                Oppose
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleToggleNeutral(e, voter); }} 
+                                className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${voter.supportLevel === 'undecided' ? 'bg-[#94A3B8] text-white shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-slate-500/10 hover:text-slate-300 hover:border-slate-500/50'}`}
+                              >
+                                Neutral
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleToggleSupport(e, voter); }} 
+                                className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'bg-[#DAA520] dark:bg-[#FFD700] text-gray-900 shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] hover:border-[#DAA520]/50'}`}
+                              >
+                                Support
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </motion.div>
@@ -416,11 +665,50 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
       </div>
 
       <AnimatePresence>
-        {selectedVoter && (
+        {selectedVoter && !bulkAssignMode && (
           <VoterEditor 
             voter={selectedVoter} 
+            users={usersList}
             onClose={() => setSelectedVoter(null)} 
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {bulkAssignMode && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] shadow-2xl p-4 md:px-6 md:py-4 rounded-full flex flex-col sm:flex-row items-center gap-4 w-[90%] md:w-max max-w-4xl"
+          >
+            <div className="flex items-center gap-2 font-mono text-sm font-bold tracking-widest text-[#DAA520]">
+              <span className="w-6 h-6 rounded-full bg-[#DAA520]/20 flex items-center justify-center">
+                {selectedIds.size}
+              </span>
+              SELECTED
+            </div>
+            <div className="h-4 w-px bg-[#004A8F] dark:bg-[#333333] hidden sm:block"></div>
+            <div className="flex w-full sm:w-auto items-center gap-3">
+              <select
+                className="flex-1 sm:w-48 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#DAA520] transition-all"
+                value={bulkAssignUser}
+                onChange={(e) => setBulkAssignUser(e.target.value)}
+              >
+                <option value="">Select Leader...</option>
+                {usersList.map(u => (
+                  <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>
+                ))}
+              </select>
+              <button
+                disabled={assigning || selectedIds.size === 0 || !bulkAssignUser}
+                onClick={handleBulkAssign}
+                className="bg-[#DAA520] hover:bg-[#B8860B] text-white px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-all shadow-lg"
+              >
+                {assigning ? 'Assigning...' : 'Assign'}
+              </button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
@@ -449,7 +737,7 @@ function SentimentBadge({ level }: { level: SupportLevel }) {
   );
 }
 
-function VoterEditor({ voter, onClose }: { voter: Voter, onClose: () => void }) {
+function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignUser[], onClose: () => void }) {
   const { user } = useAuth();
   const [fullName, setFullName] = useState(voter.fullName);
   const [address, setAddress] = useState(voter.address);
@@ -458,6 +746,7 @@ function VoterEditor({ voter, onClose }: { voter: Voter, onClose: () => void }) 
   const [photoUrl, setPhotoUrl] = useState(voter.photoUrl || '');
   const [supportLevel, setSupportLevel] = useState<SupportLevel>(voter.supportLevel);
   const [votedStatus, setVotedStatus] = useState(voter.votedStatus);
+  const [assignedTo, setAssignedTo] = useState(voter.assignedTo || '');
   const [notes, setNotes] = useState(voter.notes || '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -533,6 +822,7 @@ function VoterEditor({ voter, onClose }: { voter: Voter, onClose: () => void }) 
         photoUrl,
         supportLevel,
         votedStatus,
+        assignedTo,
         notes,
         updatedBy: user?.uid,
         updatedAt: serverTimestamp()
@@ -645,6 +935,19 @@ function VoterEditor({ voter, onClose }: { voter: Voter, onClose: () => void }) 
                     value={pollingStation}
                     onChange={(e) => setPollingStation(e.target.value)}
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase">Assigned Leader</label>
+                  <select 
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100"
+                    value={assignedTo}
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map(u => (
+                      <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase">Registered Address</label>

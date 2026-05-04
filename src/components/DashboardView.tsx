@@ -23,7 +23,7 @@ import { Voter, CampaignConfig } from '../types';
 export default function DashboardView() {
   const [voters, setVoters] = useState<Voter[]>([]);
   const [config, setConfig] = useState<CampaignConfig>({
-    electionName: 'Election Data Loading...',
+    electionName: 'Election Day Stats',
     electionDate: '',
     targetVotes: 5000
   });
@@ -88,7 +88,7 @@ export default function DashboardView() {
                Turnout: {turnoutPercentage.toFixed(1)}%
             </div>
             <div className="px-5 py-2 bg-[#DAA520]/5 border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 rounded-full text-[10px] text-[#DAA520] dark:text-[#FFD700] font-bold uppercase tracking-wider font-mono">
-              HASH: 7XJ9...L12
+              SUPPORT: {supportPercentage.toFixed(1)}%
             </div>
           </div>
         </div>

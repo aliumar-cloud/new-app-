@@ -9,18 +9,21 @@ import {
   AlertCircle,
   MapPin,
   Database,
-  CheckCircle2
+  CheckCircle2,
+  Settings
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, addDoc, onSnapshot, query, setDoc, doc } from 'firebase/firestore';
-import { CampaignUser, District } from '../types';
+import { CampaignUser, District, CampaignConfig } from '../types';
 
 export default function AdminPanel() {
   const [staff, setStaff] = useState<CampaignUser[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [isAddingStaff, setIsAddingStaff] = useState(false);
+  const [isEditingConfig, setIsEditingConfig] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
+  const [config, setConfig] = useState<CampaignConfig | null>(null);
 
   useEffect(() => {
     const qS = query(collection(db, 'users'));
@@ -32,10 +35,19 @@ export default function AdminPanel() {
     const unsubscribeD = onSnapshot(qD, (snapshot) => {
       setDistricts(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as District)));
     });
+    
+    const unsubscribeC = onSnapshot(doc(db, 'config', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        setConfig(docSnap.data() as CampaignConfig);
+      } else {
+        setConfig({ electionName: 'Election Day Stats', electionDate: '', targetVotes: 5000 });
+      }
+    });
 
     return () => {
       unsubscribeS();
       unsubscribeD();
+      unsubscribeC();
     };
   }, []);
 
@@ -80,7 +92,7 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
            {/* User Management Block */}
            <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 relative overflow-hidden shadow-sm flex flex-col justify-between">
             <div className="relative z-10 flex flex-col items-center text-center">
@@ -131,6 +143,28 @@ export default function AdminPanel() {
               )}
             </div>
           </div>
+
+          {/* Campaign Config Block */}
+          <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 relative overflow-hidden shadow-sm flex flex-col justify-between">
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-emerald-50 rounded-3xl flex items-center justify-center mb-4">
+                <Settings className="w-8 h-8 text-emerald-500" />
+              </div>
+              <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">
+                Campaign Settings
+              </h3>
+              <p className="text-xs text-blue-200 dark:text-gray-300 leading-relaxed mt-2">
+                 Adjust global parameters like election date, name, and total target votes.
+              </p>
+              <button 
+                onClick={() => setIsEditingConfig(true)}
+                className="w-full mt-8 py-4 bg-slate-900 text-white dark:text-gray-100 rounded-2xl flex items-center justify-center gap-4 hover:bg-slate-800 transition-all shadow-xl"
+              >
+                <Settings className="w-5 h-5 text-[#DAA520] dark:text-[#FFD700]" />
+                <span className="text-[10px] font-bold tracking-widest uppercase">Adjust Settings</span>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -177,14 +211,111 @@ export default function AdminPanel() {
         {isAddingStaff && (
           <StaffAddModal onClose={() => setIsAddingStaff(false)} />
         )}
+        {isEditingConfig && config && (
+          <ConfigModal config={config} onClose={() => setIsEditingConfig(false)} />
+        )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function ConfigModal({ config, onClose }: { config: CampaignConfig, onClose: () => void }) {
+  const [electionName, setElectionName] = useState(config.electionName);
+  const [electionDate, setElectionDate] = useState(config.electionDate);
+  const [targetVotes, setTargetVotes] = useState(config.targetVotes || 5000);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'config', 'global'), {
+        electionName,
+        electionDate,
+        targetVotes
+      });
+      onClose();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'config/global');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-slate-900/40 backdrop-blur-md">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] w-full max-w-lg rounded-[40px] shadow-2xl overflow-visible p-10"
+      >
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-emerald-500">
+              <Settings className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black tracking-tight text-white dark:text-gray-100">Campaign Settings</h3>
+              <p className="text-[10px] text-blue-300 dark:text-gray-400 font-bold uppercase tracking-widest">Global Parameters</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] flex items-center justify-center text-blue-300 dark:text-gray-400 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">Election Name</label>
+            <input 
+              required
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+              placeholder="e.g. 2026 Presidential Election"
+              value={electionName}
+              onChange={(e) => setElectionName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">Election Date</label>
+            <input 
+              required
+              type="date"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100"
+              style={{ colorScheme: 'dark' }}
+              value={electionDate}
+              onChange={(e) => setElectionDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">Target Votes</label>
+            <input 
+              required
+              type="number"
+              min="0"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+              placeholder="5000"
+              value={targetVotes}
+              onChange={(e) => setTargetVotes(parseInt(e.target.value) || 0)}
+            />
+          </div>
+          
+          <button 
+            disabled={saving}
+            className="w-full py-5 bg-slate-900 text-white dark:text-gray-100 rounded-[24px] font-bold uppercase tracking-[0.2em] text-[10px] mt-4 hover:bg-slate-800 flex items-center justify-center gap-3 transition-all shadow-xl shadow-slate-900/10"
+          >
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Settings className="w-4 h-4 text-emerald-500" />}
+            Save Settings
+          </button>
+        </form>
+      </motion.div>
     </div>
   );
 }
 
 function StaffAddModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'staff'>('staff');
+  const [role, setRole] = useState<'admin' | 'staff' | 'leader'>('staff');
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -255,20 +386,27 @@ function StaffAddModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">Clearance Level</label>
-            <div className="flex gap-4">
+            <div className="flex gap-2">
               <button 
                 type="button"
                 onClick={() => setRole('staff')}
                 className={`flex-1 py-4 rounded-xl border text-[10px] font-bold transition-all ${role === 'staff' ? 'bg-slate-900 text-white dark:text-gray-100 border-slate-900 shadow-lg' : 'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'}`}
               >
-                STAFF_OPERATOR
+                STAFF
+              </button>
+              <button 
+                type="button"
+                onClick={() => setRole('leader')}
+                className={`flex-1 py-4 rounded-xl border text-[10px] font-bold transition-all ${role === 'leader' ? 'bg-blue-600 text-white dark:text-gray-100 border-blue-600 shadow-lg' : 'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'}`}
+              >
+                LEADER
               </button>
               <button 
                 type="button"
                 onClick={() => setRole('admin')}
                 className={`flex-1 py-4 rounded-xl border text-[10px] font-bold transition-all ${role === 'admin' ? 'bg-[#DAA520] text-white dark:text-gray-100 border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] shadow-lg shadow-[#DAA520]/20' : 'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'}`}
               >
-                UNLIMITED_ADMIN
+                ADMIN
               </button>
             </div>
           </div>

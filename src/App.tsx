@@ -323,18 +323,26 @@ export default function App() {
                 icon={<Users className="w-4 h-4" />}
                 label="Voter Base"
               />
-              <NavButton 
-                active={activeTab === 'add_voter'} 
-                onClick={() => setActiveTab('add_voter')}
-                icon={<UserPlus className="w-4 h-4" />}
-                label="Register Voter"
-              />
-              <NavButton 
-                active={activeTab === 'bulk_upload'} 
-                onClick={() => setActiveTab('bulk_upload')}
-                icon={<Database className="w-4 h-4" />}
-                label="Bulk Upload"
-              />
+              {(profile?.role === 'admin' || profile?.role === 'leader') && (
+                <>
+                  <NavButton 
+                    active={activeTab === 'add_voter'} 
+                    onClick={() => setActiveTab('add_voter')}
+                    icon={<UserPlus className="w-4 h-4" />}
+                    label="Register Voter"
+                  />
+                </>
+              )}
+              {profile?.role === 'admin' && (
+                <>
+                  <NavButton 
+                    active={activeTab === 'bulk_upload'} 
+                    onClick={() => setActiveTab('bulk_upload')}
+                    icon={<Database className="w-4 h-4" />}
+                    label="Bulk Upload"
+                  />
+                </>
+              )}
               <NavButton 
                 active={activeTab === 'messages'} 
                 onClick={() => setActiveTab('messages')}
@@ -375,7 +383,7 @@ export default function App() {
         </div>
 
         {/* Mobile Navigation Bar */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-auto py-2 bg-[#002B5B] dark:bg-[#141414] border-t border-[#004A8F] dark:border-[#333333] flex items-center gap-2 overflow-x-auto px-4 z-50 pb-[max(env(safe-area-inset-bottom),0.5rem)] snap-x scrollbar-hide hide-scrollbar">
+        <div className={`md:hidden fixed bottom-0 left-0 right-0 h-auto py-2 bg-[#002B5B] dark:bg-[#141414] border-t border-[#004A8F] dark:border-[#333333] flex items-center gap-2 overflow-x-auto px-4 z-50 pb-[max(env(safe-area-inset-bottom),0.5rem)] snap-x scrollbar-hide hide-scrollbar ${profile?.role !== 'admin' ? 'justify-center' : ''}`}>
           <div className="snap-center shrink-0">
             <MobileNavButton 
               active={activeTab === 'dashboard'} 
@@ -408,31 +416,35 @@ export default function App() {
               label="Chat"
             />
           </div>
-          <div className="snap-center shrink-0">
-            <MobileNavButton 
-              active={activeTab === 'bulk_upload'} 
-              onClick={() => setActiveTab('bulk_upload')}
-              icon={<Database className="w-5 h-5" />}
-              label="Upload"
-            />
-          </div>
-          <div className="snap-center shrink-0">
-            <MobileNavButton 
-              active={activeTab === 'add_voter'} 
-              onClick={() => setActiveTab('add_voter')}
-              icon={<UserPlus className="w-5 h-5" />}
-              label="Add"
-            />
-          </div>
-          {profile?.role === 'admin' && (
-            <div className="snap-center shrink-0 pr-4">
+          {(profile?.role === 'admin' || profile?.role === 'leader') && (
+            <div className="snap-center shrink-0">
               <MobileNavButton 
-                active={activeTab === 'admin'} 
-                onClick={() => setActiveTab('admin')}
-                icon={<ShieldCheck className="w-5 h-5" />}
-                label="Admin"
+                active={activeTab === 'add_voter'} 
+                onClick={() => setActiveTab('add_voter')}
+                icon={<UserPlus className="w-5 h-5" />}
+                label="Add"
               />
             </div>
+          )}
+          {profile?.role === 'admin' && (
+            <>
+              <div className="snap-center shrink-0">
+                <MobileNavButton 
+                  active={activeTab === 'bulk_upload'} 
+                  onClick={() => setActiveTab('bulk_upload')}
+                  icon={<Database className="w-5 h-5" />}
+                  label="Upload"
+                />
+              </div>
+              <div className="snap-center shrink-0 pr-4">
+                <MobileNavButton 
+                  active={activeTab === 'admin'} 
+                  onClick={() => setActiveTab('admin')}
+                  icon={<ShieldCheck className="w-5 h-5" />}
+                  label="Admin"
+                />
+              </div>
+            </>
           )}
         </div>
 

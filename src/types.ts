@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'staff';
+export type UserRole = 'admin' | 'staff' | 'leader';
 
 export interface CampaignUser {
   uid: string;
@@ -46,6 +46,7 @@ export interface Voter {
   updatedAt?: any; // Firestore Timestamp
   latitude?: number;
   longitude?: number;
+  assignedTo?: string; // staff user UID
 }
 
 export interface District {
