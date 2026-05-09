@@ -1,0 +1,31 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper to check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper to check for staff/admin email (matching firestore.rules logic)
+    function isStaff() {
+      return isSignedIn() && (
+        request.auth.token.email == 'aliumar@gmail.com' ||
+        request.auth.token.email_verified == true
+      );
+    }
+
+    match /voter_photos/{voterId} {
+      // Allow staff to read and write voter photos
+      allow read: if isStaff();
+      allow write: if isStaff()
+                  && request.resource.size < 5 * 1024 * 1024 // 5MB limit
+                  && request.resource.contentType.matches('image/.*')
+                  && voterId.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -10,31 +10,39 @@ import {
   MapPin,
   Database,
   CheckCircle2,
-  Settings
+  Settings,
+  Zap
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, addDoc, onSnapshot, query, setDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, setDoc, doc, getDocs, writeBatch, deleteField } from 'firebase/firestore';
 import { CampaignUser, District, CampaignConfig } from '../types';
+import { useAuth } from '../App';
 
 export default function AdminPanel() {
-  const [staff, setStaff] = useState<CampaignUser[]>([]);
+  const { users: staff } = useAuth();
   const [districts, setDistricts] = useState<District[]>([]);
   const [isAddingStaff, setIsAddingStaff] = useState(false);
   const [isEditingConfig, setIsEditingConfig] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
   const [config, setConfig] = useState<CampaignConfig | null>(null);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState<{ processed: number, total: number } | null>(null);
+
+  const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'system' | 'optimization'>('users');
+  const [showMigrationConfirm, setShowMigrationConfirm] = useState(false);
 
   useEffect(() => {
-    const qS = query(collection(db, 'users'));
-    const unsubscribeS = onSnapshot(qS, (snapshot) => {
-      setStaff(snapshot.docs.map(doc => doc.data() as CampaignUser));
-    });
-
-    const qD = query(collection(db, 'districts'));
-    const unsubscribeD = onSnapshot(qD, (snapshot) => {
-      setDistricts(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as District)));
-    });
+    const fetchData = async () => {
+      try {
+        const snapD = await getDocs(collection(db, 'districts'));
+        setDistricts(snapD.docs.map(doc => ({ ...doc.data(), id: doc.id } as District)));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, 'districts');
+      }
+    };
+    
+    fetchData();
     
     const unsubscribeC = onSnapshot(doc(db, 'config', 'global'), (docSnap) => {
       if (docSnap.exists()) {
@@ -45,8 +53,6 @@ export default function AdminPanel() {
     });
 
     return () => {
-      unsubscribeS();
-      unsubscribeD();
       unsubscribeC();
     };
   }, []);
@@ -73,8 +79,47 @@ export default function AdminPanel() {
     }
   };
 
+  const runMigration = async () => {
+    if (!confirm("This will scan all voter records and remove 'base64Image' fields to save Firestore quota. Continue?")) return;
+    
+    setMigrating(true);
+    try {
+      const q = query(collection(db, 'voters'));
+      const snap = await getDocs(q);
+      const total = snap.size;
+      let processed = 0;
+      
+      // Batch updates in chunks of 500 (Firestore limit)
+      const docs = snap.docs;
+      for (let i = 0; i < docs.length; i += 500) {
+        const batch = writeBatch(db);
+        const chunk = docs.slice(i, i + 500);
+        
+        chunk.forEach(d => {
+          const data = d.data();
+          if (data.base64Image) {
+            batch.update(d.ref, {
+              base64Image: deleteField()
+            });
+          }
+        });
+        
+        await batch.commit();
+        processed += chunk.length;
+        setMigrationStatus({ processed, total });
+      }
+      
+      alert("Migration complete. All identified 'base64Image' fields have been removed.");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'voters (batch)');
+    } finally {
+      setMigrating(false);
+      setMigrationStatus(null);
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-12 pb-20">
+    <div className="max-w-4xl mx-auto space-y-8 pb-20">
       <section>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
           <div className="flex items-center gap-4">
@@ -92,116 +137,166 @@ export default function AdminPanel() {
           </div>
         </div>
 
+        {/* Admin Tabs */}
+        <div className="flex items-center gap-2 mb-8 bg-[#002B5B] dark:bg-[#141414] p-1.5 rounded-2xl border border-[#004A8F] dark:border-[#333333] overflow-x-auto scrollbar-hide">
+          <button 
+            onClick={() => setActiveAdminTab('users')}
+            className={`px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeAdminTab === 'users' ? 'bg-[#DAA520] text-white' : 'text-blue-200 hover:bg-[#003B73]'}`}
+          >
+            User Access
+          </button>
+          <button 
+            onClick={() => setActiveAdminTab('system')}
+            className={`px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeAdminTab === 'system' ? 'bg-[#DAA520] text-white' : 'text-blue-200 hover:bg-[#003B73]'}`}
+          >
+            System Config
+          </button>
+          <button 
+            onClick={() => setActiveAdminTab('optimization')}
+            className={`px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${activeAdminTab === 'optimization' ? 'bg-amber-500 text-white' : 'text-amber-200 hover:bg-amber-500/10'}`}
+          >
+            DB Optimization
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-           {/* User Management Block */}
-           <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 relative overflow-hidden shadow-sm flex flex-col justify-between">
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-sky-50 rounded-3xl flex items-center justify-center mb-4">
-                <UserPlus className="w-8 h-8 text-sky-500" />
+          {activeAdminTab === 'users' && (
+            <div className="lg:col-span-3 space-y-8">
+              <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 relative overflow-hidden shadow-sm flex flex-col sm:flex-row items-center justify-between text-center sm:text-left">
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <div className="w-16 h-16 bg-sky-50 rounded-3xl flex items-center justify-center">
+                    <UserPlus className="w-8 h-8 text-sky-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">Team Authorization</h3>
+                    <p className="text-xs text-blue-200 dark:text-gray-300 mt-1 max-w-md">Onboard campaign staff and assign roles for record intake and analytics access.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsAddingStaff(true)}
+                  className="px-8 py-4 bg-slate-900 text-white dark:text-gray-100 rounded-2xl flex items-center justify-center gap-4 hover:bg-slate-800 transition-all shadow-xl whitespace-nowrap"
+                >
+                  <UserPlus className="w-5 h-5 text-[#DAA520] dark:text-[#FFD700]" />
+                  <span className="text-[10px] font-bold tracking-widest uppercase">Authorize Node</span>
+                </button>
               </div>
-              <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">
-                Team Authorization
-              </h3>
-              <p className="text-xs text-blue-200 dark:text-gray-300 leading-relaxed mt-2">
-                 Onboard campaign staff and assign roles for record intake and analytics access.
-              </p>
-              <button 
-                onClick={() => setIsAddingStaff(true)}
-                className="w-full mt-8 py-4 bg-slate-900 text-white dark:text-gray-100 rounded-2xl flex items-center justify-center gap-4 hover:bg-slate-800 transition-all shadow-xl"
-              >
-                <UserPlus className="w-5 h-5 text-[#DAA520] dark:text-[#FFD700]" />
-                <span className="text-[10px] font-bold tracking-widest uppercase">Authorize Node</span>
-              </button>
-            </div>
-          </div>
 
-          {/* District Initialization Block */}
-          <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 relative overflow-hidden shadow-sm flex flex-col justify-between">
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-[#DAA520]/10 rounded-3xl flex items-center justify-center mb-4">
-                <MapPin className="w-8 h-8 text-[#DAA520] dark:text-[#FFD700]" />
+              <section className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-[40px] overflow-hidden shadow-sm">
+                <div className="px-10 py-8 border-b border-[#004A8F] dark:border-[#333333] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-blue-300 dark:text-gray-400 flex items-center gap-2 font-mono">
+                    <ShieldAlert className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+                    Current Campaign Nodes
+                  </h3>
+                  <div className="px-4 py-2 bg-[#003B73] dark:bg-[#1f1f1f] rounded-full text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">
+                    Nodes Online: {staff.length}
+                  </div>
+                </div>
+                <div className="divide-y divide-slate-50/10">
+                  {staff.map((s) => (
+                    <div key={s.uid} className="px-10 py-6 flex items-center justify-between group hover:bg-[#DAA520]/[0.01] transition-colors">
+                      <div className="flex items-center gap-6">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 ${s.role === 'admin' ? 'border-[#DAA520] dark:border-[#FFD700] bg-[#DAA520]/5' : 'border-[#004A8F] dark:border-[#333333] bg-[#003B73] dark:bg-[#1f1f1f]'}`}>
+                          {s.role === 'admin' ? <ShieldAlert className="w-6 h-6 text-[#DAA520] dark:text-[#FFD700]" /> : <User className="w-6 h-6 text-blue-300 dark:text-gray-400" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white dark:text-gray-100">{s.displayName}</p>
+                          <p className="text-[10px] text-blue-300 dark:text-gray-400 font-bold lowercase mt-0.5">{s.email}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-[9px] font-bold px-4 py-1.5 rounded-full border inline-block mb-1 tracking-widest ${s.role === 'admin' ? 'text-[#DAA520] dark:text-[#FFD700] border-[#DAA520] bg-[#DAA520]/5' : 'text-blue-300 dark:text-gray-400 border-[#004A8F] bg-[#003B73] dark:bg-[#1f1f1f]'}`}>
+                          {s.role.toUpperCase()}
+                        </p>
+                        <p className="text-[9px] text-slate-300 font-bold uppercase mt-1 tracking-tighter hidden sm:block">Since {new Date(s.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {activeAdminTab === 'system' && (
+            <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 flex flex-col justify-between">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-16 h-16 bg-[#DAA520]/10 rounded-3xl flex items-center justify-center mb-4">
+                    <MapPin className="w-8 h-8 text-[#DAA520] dark:text-[#FFD700]" />
+                  </div>
+                  <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">Region Mapping</h3>
+                  <p className="text-xs text-blue-200 dark:text-gray-300 leading-relaxed mt-2">Initialize Maafannu districts. This is required for valid voter registration and geospatial grouping.</p>
+                  <button 
+                    onClick={seedDistricts}
+                    disabled={seeding || districts.length > 0}
+                    className="w-full mt-8 py-4 border-2 border-[#004A8F] dark:border-[#333333] text-white dark:text-gray-100 rounded-2xl flex items-center justify-center gap-4 hover:bg-[#003B73] transition-all disabled:opacity-50 disabled:grayscale"
+                  >
+                    {seeding ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5 text-[#DAA520]" />}
+                    <span className="text-[10px] font-bold tracking-widest uppercase">{districts.length > 0 ? 'Regions Initialized' : 'Initialize Regions'}</span>
+                  </button>
+                </div>
               </div>
-              <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">
-                Region Mapping
-              </h3>
-              <p className="text-xs text-blue-200 dark:text-gray-300 leading-relaxed mt-2">
-                 Initialize Maafannu districts. This is required for valid voter registration and geospatial grouping.
-              </p>
-              <button 
-                onClick={seedDistricts}
-                disabled={seeding || districts.length > 0}
-                className="w-full mt-8 py-4 border-2 border-[#004A8F] dark:border-[#333333] text-white dark:text-gray-100 rounded-2xl flex items-center justify-center gap-4 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f] transition-all disabled:opacity-50 disabled:grayscale"
-              >
-                {seeding ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5 text-[#DAA520] dark:text-[#FFD700]" />}
-                <span className="text-[10px] font-bold tracking-widest uppercase">
-                  {districts.length > 0 ? 'Regions Initialized' : 'Initialize Regions'}
-                </span>
-                {seedSuccess && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-              </button>
-              {districts.length > 0 && (
-                <p className="text-[9px] text-emerald-600 font-bold uppercase mt-3">{districts.length} Active Regions Detected</p>
+
+              <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 flex flex-col justify-between">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-16 h-16 bg-emerald-50 rounded-3xl flex items-center justify-center mb-4">
+                    <Settings className="w-8 h-8 text-emerald-500" />
+                  </div>
+                  <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">Campaign Settings</h3>
+                  <p className="text-xs text-blue-200 dark:text-gray-300 leading-relaxed mt-2">Adjust global parameters like election date, name, and total target votes.</p>
+                  <button 
+                    onClick={() => setIsEditingConfig(true)}
+                    className="w-full mt-8 py-4 bg-slate-900 text-white dark:text-gray-100 rounded-2xl flex items-center justify-center gap-4 hover:bg-slate-800 transition-all"
+                  >
+                    <Settings className="w-5 h-5 text-[#DAA520]" />
+                    <span className="text-[10px] font-bold tracking-widest uppercase">Adjust Settings</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeAdminTab === 'optimization' && (
+            <div className="lg:col-span-3 space-y-8">
+              <div className="bg-amber-900/10 border border-amber-500/30 p-8 rounded-[32px] space-y-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center">
+                      <Zap className="w-8 h-8 text-amber-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">Database Optimization</h3>
+                      <p className="text-xs text-blue-200 dark:text-gray-300 mt-1">Clean up legacy data structures (Base64 images) to resolve quota limits and improve load times.</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowMigrationConfirm(true)}
+                    disabled={migrating}
+                    className="px-10 py-5 bg-amber-500 text-white font-bold rounded-2xl flex items-center gap-3 hover:bg-amber-600 transition-all shadow-xl shadow-amber-500/20 disabled:opacity-50"
+                  >
+                    {migrating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
+                    <span className="text-[10px] uppercase tracking-widest">
+                      {migrating ? `Processing (${migrationStatus?.processed}/${migrationStatus?.total})...` : 'Clear Base64 Image Strings'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {migrating && migrationStatus && (
+                <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] p-8 rounded-[32px] space-y-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Migration Progress</span>
+                    <span className="text-[10px] font-bold text-white uppercase">{Math.round((migrationStatus.processed / migrationStatus.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-[#003B73] h-3 rounded-full overflow-hidden">
+                    <motion.div 
+                      className="h-full bg-amber-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(migrationStatus.processed / migrationStatus.total) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-blue-200 text-center uppercase tracking-tighter">Processed {migrationStatus.processed} of {migrationStatus.total} records</p>
+                </div>
               )}
-            </div>
-          </div>
-
-          {/* Campaign Config Block */}
-          <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 relative overflow-hidden shadow-sm flex flex-col justify-between">
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-emerald-50 rounded-3xl flex items-center justify-center mb-4">
-                <Settings className="w-8 h-8 text-emerald-500" />
-              </div>
-              <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">
-                Campaign Settings
-              </h3>
-              <p className="text-xs text-blue-200 dark:text-gray-300 leading-relaxed mt-2">
-                 Adjust global parameters like election date, name, and total target votes.
-              </p>
-              <button 
-                onClick={() => setIsEditingConfig(true)}
-                className="w-full mt-8 py-4 bg-slate-900 text-white dark:text-gray-100 rounded-2xl flex items-center justify-center gap-4 hover:bg-slate-800 transition-all shadow-xl"
-              >
-                <Settings className="w-5 h-5 text-[#DAA520] dark:text-[#FFD700]" />
-                <span className="text-[10px] font-bold tracking-widest uppercase">Adjust Settings</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Staff Activity */}
-      <section className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-[40px] overflow-hidden shadow-sm">
-        <div className="px-10 py-8 border-b border-[#004A8F] dark:border-[#333333] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-blue-300 dark:text-gray-400 flex items-center gap-2 font-mono">
-             <ShieldAlert className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
-             Current Campaign Nodes
-          </h3>
-          <div className="px-4 py-2 bg-[#003B73] dark:bg-[#1f1f1f] rounded-full text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">
-            Nodes Online: {staff.length}
-          </div>
-        </div>
-        <div className="divide-y divide-slate-50">
-          {staff.map((s) => (
-            <div key={s.uid} className="px-10 py-6 flex items-center justify-between group hover:bg-[#DAA520]/[0.01] transition-colors">
-              <div className="flex items-center gap-6">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 ${s.role === 'admin' ? 'border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 bg-[#DAA520]/5' : 'border-[#004A8F] dark:border-[#333333] bg-[#003B73] dark:bg-[#1f1f1f]'}`}>
-                  {s.role === 'admin' ? <ShieldAlert className="w-6 h-6 text-[#DAA520] dark:text-[#FFD700]" /> : <User className="w-6 h-6 text-blue-300 dark:text-gray-400" />}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white dark:text-gray-100">{s.displayName}</p>
-                  <p className="text-[10px] text-blue-300 dark:text-gray-400 font-bold lowercase mt-0.5">{s.email}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className={`text-[9px] font-bold px-4 py-1.5 rounded-full border inline-block mb-1 tracking-widest ${s.role === 'admin' ? 'text-[#DAA520] dark:text-[#FFD700] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 bg-[#DAA520]/5' : 'text-blue-300 dark:text-gray-400 border-[#004A8F] dark:border-[#333333] bg-[#003B73] dark:bg-[#1f1f1f]'}`}>
-                   {s.role.toUpperCase()}
-                </p>
-                <p className="text-[9px] text-slate-300 font-bold uppercase mt-1 tracking-tighter hidden sm:block">Since {new Date(s.createdAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-          ))}
-          {staff.length === 0 && (
-            <div className="p-16 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">
-              No authorized nodes detected in sector
             </div>
           )}
         </div>
@@ -213,6 +308,38 @@ export default function AdminPanel() {
         )}
         {isEditingConfig && config && (
           <ConfigModal config={config} onClose={() => setIsEditingConfig(false)} />
+        )}
+        {showMigrationConfirm && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] p-10 rounded-[40px] max-w-md w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <ShieldAlert className="w-10 h-10 text-amber-500" />
+              </div>
+              <h3 className="text-xl font-black text-white mb-4 uppercase italic">Database Sanitization</h3>
+              <p className="text-sm text-blue-200 leading-relaxed mb-8">
+                This operation will strip the <code className="bg-slate-900/50 px-1.5 py-0.5 rounded text-amber-400">base64Image</code> field from every voter record. This is irreversible but necessary to stay within Firestore free-tier limits.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => { setShowMigrationConfirm(false); runMigration(); }}
+                  className="w-full py-4 bg-rose-600 text-white font-bold rounded-2xl uppercase tracking-widest text-[10px] hover:bg-rose-700 transition-all shadow-lg"
+                >
+                  Proceed with Cleanup
+                </button>
+                <button 
+                  onClick={() => setShowMigrationConfirm(false)}
+                  className="w-full py-4 bg-[#003B73] text-blue-300 font-bold rounded-2xl uppercase tracking-widest text-[10px] hover:bg-[#004A8F] transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

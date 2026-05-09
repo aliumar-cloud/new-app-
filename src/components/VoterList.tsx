@@ -22,22 +22,32 @@ import {
   Image as ImageIcon,
   Upload,
   Camera,
+  Clipboard,
   Trash2,
   Grid,
   List,
-  Users
+  Users,
+  Check
 } from 'lucide-react';
 import { db, storage, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, query, doc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, updateDoc, deleteDoc, serverTimestamp, writeBatch, deleteField } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Voter, SupportLevel, CampaignUser } from '../types';
 import { useAuth } from '../App';
+import { useVoters } from '../contexts/VoterContext';
 
 export default function VoterList({ onRegisterClick }: { onRegisterClick: () => void, key?: string }) {
-  const { user } = useAuth();
-  const [voters, setVoters] = useState<Voter[]>([]);
-  const [usersInfo, setUsersInfo] = useState<Record<string, string>>({});
-  const [usersList, setUsersList] = useState<CampaignUser[]>([]);
+  const { user, users: usersList } = useAuth();
+  const { voters, loading, refreshVoters, updateVoterLocally } = useVoters();
+  
+  const usersInfo = React.useMemo(() => {
+    const info: Record<string, string> = {};
+    usersList.forEach(u => {
+      info[u.uid] = u.displayName || u.email;
+    });
+    return info;
+  }, [usersList]);
+
   const [search, setSearch] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState<SupportLevel | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'voted' | 'not_voted' | 'all'>('all');
@@ -50,37 +60,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
   const [bulkAssignMode, setBulkAssignMode] = useState(false);
   const [bulkAssignUser, setBulkAssignUser] = useState('');
   const [assigning, setAssigning] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [showAddMenu, setShowAddMenu] = useState(false);
-
-  useEffect(() => {
-    const qV = query(collection(db, 'voters'));
-    const unsubscribeV = onSnapshot(qV, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        voterId: doc.id
-      } as Voter));
-      setVoters(data);
-      setLoading(false);
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'voters'));
-
-    const unsubscribeU = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const uInfo: Record<string, string> = {};
-      const uList: CampaignUser[] = [];
-      snapshot.forEach(doc => {
-        const u = doc.data() as CampaignUser;
-        uInfo[doc.id] = u.displayName || u.email;
-        uList.push(u);
-      });
-      setUsersInfo(uInfo);
-      setUsersList(uList);
-    });
-
-    return () => {
-      unsubscribeV();
-      unsubscribeU();
-    };
-  }, []);
 
   const filteredVoters = voters.filter(v => {
     const matchesSearch = (v.fullName || '').toLowerCase().includes(search.toLowerCase()) || 
@@ -125,50 +105,76 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
 
   const handleToggleSupport = async (e: React.MouseEvent, voter: Voter) => {
     e.stopPropagation();
+    const newSupportLevel = voter.supportLevel === 'strong_support' ? 'undecided' : 'strong_support';
+    
+    // Optimistic Update
+    updateVoterLocally(voter.voterId, { supportLevel: newSupportLevel });
+    
     try {
-      const newSupportLevel = voter.supportLevel === 'strong_support' ? 'undecided' : 'strong_support';
       await updateDoc(doc(db, 'voters', voter.voterId), {
         supportLevel: newSupportLevel,
         updatedAt: serverTimestamp()
       });
+      // Optionally refresh in background, but the UI is already updated
     } catch (err) {
+      // Revert on error
+      updateVoterLocally(voter.voterId, { supportLevel: voter.supportLevel });
       handleFirestoreError(err, OperationType.UPDATE, `voters/${voter.voterId}`);
     }
   };
 
   const handleToggleVoted = async (e: React.MouseEvent, voter: Voter) => {
     e.stopPropagation();
+    const newStatus = !voter.votedStatus;
+    
+    // Optimistic Update
+    updateVoterLocally(voter.voterId, { votedStatus: newStatus });
+    
     try {
       await updateDoc(doc(db, 'voters', voter.voterId), {
-        votedStatus: !voter.votedStatus,
+        votedStatus: newStatus,
         updatedAt: serverTimestamp()
       });
     } catch (err) {
+      // Revert on error
+      updateVoterLocally(voter.voterId, { votedStatus: voter.votedStatus });
       handleFirestoreError(err, OperationType.UPDATE, `voters/${voter.voterId}`);
     }
   };
 
-  const handleToggleOppose = async (e: React.MouseEvent, voter: Voter) => {
+  const handleToggleOppose = async (e: React.MouseEvent, voter) => {
     e.stopPropagation();
+    const newSupportLevel = voter.supportLevel === 'strong_opposition' ? 'undecided' : 'strong_opposition';
+    
+    // Optimistic Update
+    updateVoterLocally(voter.voterId, { supportLevel: newSupportLevel });
+    
     try {
-      const newSupportLevel = voter.supportLevel === 'strong_opposition' ? 'undecided' : 'strong_opposition';
       await updateDoc(doc(db, 'voters', voter.voterId), {
         supportLevel: newSupportLevel,
         updatedAt: serverTimestamp()
       });
     } catch (err) {
+      // Revert on error
+      updateVoterLocally(voter.voterId, { supportLevel: voter.supportLevel });
       handleFirestoreError(err, OperationType.UPDATE, `voters/${voter.voterId}`);
     }
   };
 
   const handleToggleNeutral = async (e: React.MouseEvent, voter: Voter) => {
     e.stopPropagation();
+    
+    // Optimistic Update
+    updateVoterLocally(voter.voterId, { supportLevel: 'undecided' });
+    
     try {
       await updateDoc(doc(db, 'voters', voter.voterId), {
         supportLevel: 'undecided',
         updatedAt: serverTimestamp()
       });
     } catch (err) {
+      // Revert on error
+      updateVoterLocally(voter.voterId, { supportLevel: voter.supportLevel });
       handleFirestoreError(err, OperationType.UPDATE, `voters/${voter.voterId}`);
     }
   };
@@ -209,6 +215,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
         });
       });
       await batch.commit();
+      refreshVoters();
       setSelectedIds(new Set());
       setBulkAssignMode(false);
       setBulkAssignUser('');
@@ -300,6 +307,15 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
               )}
             </div>
           )}
+          
+          <button 
+            onClick={() => refreshVoters()}
+            disabled={loading}
+            className="flex items-center shrink-0 justify-center gap-2 px-6 py-3 border border-[#004A8F] dark:border-[#333333] rounded-2xl transition-all text-xs font-bold uppercase tracking-widest text-blue-200 dark:text-gray-300 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f] disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
           
           <button 
             onClick={() => setShowFilters(!showFilters)}
@@ -435,11 +451,15 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                       <motion.div
                         key={voter.voterId}
                         onClick={() => user?.role === 'admin' ? setSelectedVoter(voter) : null}
-                        className={`grid grid-cols-12 gap-2 md:gap-4 px-4 md:px-8 py-4 md:py-6 items-center ${user?.role === 'admin' ? 'cursor-pointer' : ''} transition-all group border-l-4 border-b border-b-sky-100/50 ${
-                          voter.votedStatus && voter.supportLevel === 'strong_support' ? 'bg-emerald-50/50 border-l-emerald-500 hover:bg-emerald-50' :
+                        className={`grid grid-cols-12 gap-2 md:gap-4 px-4 md:px-8 py-4 md:py-6 items-center ${user?.role === 'admin' ? 'cursor-pointer' : ''} transition-all group border-b border-b-sky-100/50 ${
+                          voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support' ? 'border-4 border-emerald-500' :
+                          voter.supportLevel === 'strong_opposition' || voter.supportLevel === 'lean_opposition' ? 'border-4 border-red-500' :
+                          'border-l-4 border-l-transparent'
+                        } ${
                           voter.votedStatus ? 'bg-[#003B73] dark:bg-[#1f1f1f]/80 border-l-slate-300 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]' :
-                          voter.supportLevel === 'strong_support' ? 'bg-[#DAA520]/[0.02] border-l-[#DAA520] hover:bg-[#DAA520]/[0.05]' :
-                          'bg-[#002B5B] dark:bg-[#141414] border-l-transparent hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'
+                          'bg-[#002B5B] dark:bg-[#141414] hover:border-l-[#DAA520] hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'
+                        } ${
+                          !(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support' || voter.supportLevel === 'strong_opposition' || voter.supportLevel === 'lean_opposition') && voter.votedStatus ? 'border-l-slate-300' : ''
                         }`}
                       >
                         {bulkAssignMode && (
@@ -565,10 +585,12 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                         className={`border rounded-3xl overflow-hidden shadow-sm hover:shadow-md ${user?.role === 'admin' || bulkAssignMode ? 'cursor-pointer' : ''} transition-all group flex flex-col relative ${
                           bulkAssignMode && selectedIds.has(voter.voterId) ? 'ring-2 ring-[#DAA520] transform scale-[0.98]' : ''
                         } ${
-                          voter.votedStatus && voter.supportLevel === 'strong_support' ? 'bg-emerald-50/50 border-emerald-300 hover:border-emerald-400' :
-                          voter.votedStatus ? 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] hover:border-[#004A8F] dark:border-[#333333]' :
-                          voter.supportLevel === 'strong_support' ? 'bg-[#DAA520]/[0.05] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/30 dark:border-[#FFD700] dark:border-[#333333]/30 hover:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/50' :
-                          'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] hover:border-sky-300 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'
+                          voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support' ? 'border-4 border-emerald-500' :
+                          voter.supportLevel === 'strong_opposition' || voter.supportLevel === 'lean_opposition' ? 'border-4 border-red-500' :
+                          'border-[#004A8F] dark:border-[#333333]'
+                        } ${
+                          voter.votedStatus ? 'bg-[#003B73] dark:bg-[#1f1f1f] hover:border-[#004A8F] dark:hover:border-[#333333]' :
+                          'bg-[#002B5B] dark:bg-[#141414] hover:border-[#DAA520] hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'
                         }`}
                       >
                         {bulkAssignMode && (
@@ -589,26 +611,43 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                               <User className="w-12 h-12" />
                             </div>
                           )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleToggleVoted(e, voter); }}
-                            className={`absolute bottom-3 left-3 w-14 h-14 rounded-2xl shadow-xl flex flex-col items-center justify-center border-2 transition-all z-10 ${voter.votedStatus ? 'bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/20' : 'bg-[#002B5B]/80 dark:bg-[#141414]/90 backdrop-blur-sm border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:border-[#DAA520] hover:text-[#DAA520]'}`}
-                          >
-                             <Vote className="w-6 h-6 mb-1" />
-                             <span className="text-[8px] font-black uppercase leading-none">{voter.votedStatus ? 'VOTED' : 'VOTE'}</span>
-                          </button>
+                          {voter.votedStatus && (
+                            <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/40 via-emerald-500/20 to-transparent pointer-events-none">
+                              <div className="absolute top-2 right-2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white dark:border-[#141414]">
+                                <Check className="w-4 h-4 text-white" />
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="p-4 relative flex-1 flex flex-col justify-between">
                           <div>
-                            <div className="flex items-center gap-2 w-full pr-12">
-                              <p className="text-sm font-bold text-white dark:text-gray-100 truncate group-hover:text-[#DAA520] dark:hover:text-[#FFD700] transition-colors shrink-0">{voter.fullName}</p>
-                              {voter.address && (
-                                <p className="text-sm font-bold text-[#DAA520] dark:text-[#FFD700] uppercase truncate flex-1 text-right">{voter.address}</p>
-                              )}
+                            <div className="flex w-full items-start justify-between gap-2 mb-1">
+                              <div className="flex flex-col flex-1 min-w-0">
+                                <p className="text-[15px] font-black text-white dark:text-gray-100 truncate group-hover:text-[#DAA520] dark:hover:text-[#FFD700] transition-colors pb-1">{voter.fullName}</p>
+                                {voter.address ? (
+                                  <p className="text-[10px] font-bold text-[#DAA520] dark:text-[#FFD700] uppercase truncate leading-tight flex items-center gap-1.5 mb-1.5">
+                                    <MapPin className="w-3 h-3 flex-shrink-0 opacity-80" />
+                                    <span className="truncate">{voter.address}</span>
+                                  </p>
+                                ) : (
+                                  <p className="text-[10px] text-blue-200/50 dark:text-gray-400/50 truncate leading-tight mb-1.5 flex items-center gap-1.5">
+                                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                                    No address
+                                  </p>
+                                )}
+                                <div className="inline-flex items-center gap-1.5 bg-rose-500/10 dark:bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/20 w-max">
+                                  <User className="w-3 h-3 text-rose-500" />
+                                  <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">{voter.voterId}</span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleToggleVoted(e, voter); }}
+                                className={`w-12 h-12 flex-shrink-0 rounded-xl flex flex-col items-center justify-center border transition-all ${voter.votedStatus ? 'bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/20' : 'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:border-[#DAA520] hover:text-[#DAA520]'}`}
+                              >
+                                <Vote className="w-5 h-5 mb-0.5" />
+                                <span className="text-[7px] font-black uppercase leading-none">{voter.votedStatus ? 'VOTED' : 'VOTE'}</span>
+                              </button>
                             </div>
-                            <p className="text-sm font-bold text-rose-500 uppercase mt-0.5">{voter.voterId}</p>
-                            {!voter.address && (
-                              <p className="text-[10px] text-blue-200 dark:text-gray-300 truncate mt-0.5">No address</p>
-                            )}
                             {voter.assignedTo && usersInfo[voter.assignedTo] && (
                               <div className="flex items-center gap-1 mt-1 opacity-70">
                                 <User className="w-3 h-3 text-emerald-500" />
@@ -626,25 +665,27 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                           </div>
                           
                           <div>
-                            <div className="mt-3 flex gap-1 w-full pt-3 border-t border-[#004A8F] dark:border-[#333333]">
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleToggleOppose(e, voter); }} 
-                                className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${voter.supportLevel === 'strong_opposition' ? 'bg-red-500 text-white shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50'}`}
-                              >
-                                Oppose
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleToggleNeutral(e, voter); }} 
-                                className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${voter.supportLevel === 'undecided' ? 'bg-[#94A3B8] text-white shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-slate-500/10 hover:text-slate-300 hover:border-slate-500/50'}`}
-                              >
-                                Neutral
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleToggleSupport(e, voter); }} 
-                                className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'bg-[#DAA520] dark:bg-[#FFD700] text-gray-900 shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] hover:border-[#DAA520]/50'}`}
-                              >
-                                Support
-                              </button>
+                            <div className="mt-3 flex flex-col gap-2 w-full pt-3 border-t border-[#004A8F] dark:border-[#333333]">
+                              <div className="flex gap-1 w-full">
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleToggleOppose(e, voter); }} 
+                                  className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${voter.supportLevel === 'strong_opposition' ? 'bg-red-500 text-white shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50'}`}
+                                >
+                                  Oppose
+                                </button>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleToggleNeutral(e, voter); }} 
+                                  className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${voter.supportLevel === 'undecided' ? 'bg-[#94A3B8] text-white shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-slate-500/10 hover:text-slate-300 hover:border-slate-500/50'}`}
+                                >
+                                  Neutral
+                                </button>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleToggleSupport(e, voter); }} 
+                                  className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'bg-[#DAA520] dark:bg-[#FFD700] text-gray-900 shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] hover:border-[#DAA520]/50'}`}
+                                >
+                                  Support
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -739,6 +780,7 @@ function SentimentBadge({ level }: { level: SupportLevel }) {
 
 function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignUser[], onClose: () => void }) {
   const { user } = useAuth();
+  const { updateVoterLocally, refreshVoters } = useVoters();
   const [fullName, setFullName] = useState(voter.fullName);
   const [address, setAddress] = useState(voter.address);
   const [phone, setPhone] = useState(voter.phone);
@@ -756,10 +798,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processImage = async (file: File | Blob) => {
     setUploading(true);
     try {
       const reader = new FileReader();
@@ -789,9 +828,27 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
           
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          setPhotoUrl(dataUrl);
-          setUploading(false);
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              alert("Failed to process image blob.");
+              setUploading(false);
+              return;
+            }
+            
+            try {
+              const fileName = `voter_photos/${voter.voterId}.jpg`;
+              const storageRef = ref(storage, fileName);
+              const snapshot = await uploadBytes(storageRef, blob);
+              const downloadURL = await getDownloadURL(snapshot.ref);
+              
+              setPhotoUrl(downloadURL);
+              setUploading(false);
+            } catch (storageErr: any) {
+              console.error("Storage error:", storageErr);
+              alert(`Upload failed: ${storageErr.message}`);
+              setUploading(false);
+            }
+          }, 'image/jpeg', 0.7);
         };
         img.onerror = () => {
           alert("Failed to parse image file.");
@@ -810,25 +867,75 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
       setUploading(false);
     }
   };
+  
+  const handleClipboardPaste = async () => {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        // Fallback or warning
+        alert("Direct clipboard access is restricted. Try using Ctrl+V on your keyboard.");
+        return;
+      }
+      
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith("image/")) {
+            const blob = await item.getType(type);
+            if (blob) processImage(blob);
+            return;
+          }
+        }
+      }
+      alert("No image found in clipboard.");
+    } catch (err: any) {
+      console.error("Clipboard error:", err);
+      alert("Clipboard access denied or unsupported.");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImage(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+            const blob = items[i].getAsFile();
+            if (blob) processImage(blob);
+        }
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
+    const updates = {
+      fullName,
+      address,
+      phone,
+      pollingStation,
+      photoUrl,
+      supportLevel,
+      votedStatus,
+      assignedTo,
+      notes,
+    };
+
+    // Optimistic local update so the list is snappy
+    updateVoterLocally(voter.voterId, updates);
+
     try {
       await updateDoc(doc(db, 'voters', voter.voterId), {
-        fullName,
-        address,
-        phone,
-        pollingStation,
-        photoUrl,
-        supportLevel,
-        votedStatus,
-        assignedTo,
-        notes,
+        ...updates,
+        base64Image: deleteField(),
         updatedBy: user?.uid,
         updatedAt: serverTimestamp()
       });
       onClose();
     } catch (err) {
+      // Revert if somehow failed
+      refreshVoters(); 
       handleFirestoreError(err, OperationType.UPDATE, `voters/${voter.voterId}`);
     } finally {
       setSaving(false);
@@ -845,6 +952,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
     setDeleting(true);
     try {
       await deleteDoc(doc(db, 'voters', voter.voterId));
+      refreshVoters(); // Full refresh after delete
       onClose();
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `voters/${voter.voterId}`);
@@ -859,6 +967,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        onPaste={handlePaste}
         className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative"
       >
         <div className="px-6 md:px-10 py-6 md:py-8 border-b border-[#004A8F] dark:border-[#333333] flex items-center justify-between bg-[#002B5B] dark:bg-[#141414] sticky top-0 z-10">
@@ -879,21 +988,31 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
               <h3 className="text-xl md:text-2xl font-black tracking-tight text-white dark:text-gray-100 truncate max-w-[200px] md:max-w-xs">{fullName}</h3>
               <p className="text-[10px] text-blue-300 dark:text-gray-400 uppercase tracking-widest font-bold">VOTER_ID: {voter.voterId.slice(0, 12)}</p>
               
-              <div className="flex gap-2 mt-2">
-                <button 
-                   onClick={() => fileInputRef.current?.click()}
-                   className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
-                >
-                  <Upload className="w-3 h-3" />
-                  Library
-                </button>
-                <button 
-                   onClick={() => cameraInputRef.current?.click()}
-                   className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
-                >
-                  <Camera className="w-3 h-3" />
-                  Capture
-                </button>
+              <div className="flex flex-col gap-2 mt-2">
+                <div className="flex gap-2">
+                  <button 
+                     onClick={() => fileInputRef.current?.click()}
+                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
+                  >
+                    <Upload className="w-3 h-3" />
+                    Library
+                  </button>
+                  <button 
+                     onClick={() => cameraInputRef.current?.click()}
+                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
+                  >
+                    <Camera className="w-3 h-3" />
+                    Capture
+                  </button>
+                  <button 
+                     onClick={handleClipboardPaste}
+                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
+                  >
+                    <Clipboard className="w-3 h-3" />
+                    Paste
+                  </button>
+                </div>
+                <p className="text-[8px] font-bold text-blue-300/40 dark:text-gray-500 uppercase tracking-widest text-center">Ctrl+V to Paste</p>
                 <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
                 <input ref={cameraInputRef} type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
               </div>

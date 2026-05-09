@@ -71,8 +71,8 @@ service cloud.firestore {
 
     // USERS Collection
     match /users/{userId} {
-      allow get: if isEmailVerified() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
+      allow get: if isEmailVerified() && (request.auth.uid == userId || isStaff());
+      allow list: if isStaff();
       
       allow create: if isEmailVerified() && (
         (userId == request.auth.uid && incoming().role == 'staff') ||
@@ -111,19 +111,6 @@ service cloud.firestore {
     match /config/global {
       allow read: if isStaff();
       allow write: if isAdmin();
-    }
-    // CHATS Collection
-    match /chats/{chatId} {
-      allow get: if isStaff() && request.auth.uid in resource.data.participants;
-      allow list: if isStaff() && request.auth.uid in resource.data.participants;
-      
-      allow create: if isStaff() && (request.auth.uid in incoming().participants);
-      allow update: if isStaff() && (request.auth.uid in existing().participants);
-      
-      match /messages/{messageId} {
-        allow read: if isStaff() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
-        allow create: if isStaff() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants) && incoming().senderId == request.auth.uid;
-      }
     }
   }
 }

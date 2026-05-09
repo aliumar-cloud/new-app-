@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, 
@@ -20,7 +20,9 @@ import {
   Database,
   MessageSquare,
   Sun,
-  Moon
+  Moon,
+  Bell,
+  X
 } from 'lucide-react';
 import { 
   auth, 
@@ -41,28 +43,31 @@ import {
   setDoc, 
   collection, 
   onSnapshot, 
+  getDocs,
   query, 
+  where,
   serverTimestamp,
   orderBy,
   updateDoc
 } from 'firebase/firestore';
 import { CampaignUser, Voter, District, UserRole } from './types';
+import { VoterProvider } from './contexts/VoterContext';
 import DashboardView from './components/DashboardView';
 import VoterList from './components/VoterList';
 import AdminPanel from './components/AdminPanel';
 import MapView from './components/MapView';
 import VoterCreatorView from './components/VoterCreatorView';
 import BulkUpload from './components/BulkUpload';
-import Messaging from './components/Messaging';
 
 // --- Auth Context ---
 interface AuthContextType {
   user: CampaignUser | null;
+  users: CampaignUser[];
   loading: boolean;
   error: string | null;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true, error: null });
+const AuthContext = createContext<AuthContextType>({ user: null, users: [], loading: true, error: null });
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -71,7 +76,8 @@ export default function App() {
   const [profile, setProfile] = useState<CampaignUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'voters' | 'mapping' | 'admin' | 'add_voter' | 'bulk_upload' | 'messages'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'voters' | 'mapping' | 'admin' | 'add_voter' | 'bulk_upload'>('dashboard');
+  const [personnel, setPersonnel] = useState<CampaignUser[]>([]);
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -155,6 +161,54 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  const personnelRef = useRef<CampaignUser[]>([]);
+
+  useEffect(() => {
+    if (!profile) {
+      setPersonnel([]);
+      personnelRef.current = [];
+      return;
+    }
+
+    // Change to one-time fetch to avoid N^2 read explosion from heartbeat updates
+    const fetchUsers = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        const users: CampaignUser[] = [];
+        snap.forEach(d => users.push(d.data() as CampaignUser));
+        setPersonnel(users);
+        personnelRef.current = users;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, 'users');
+      }
+    };
+    
+    fetchUsers();
+  }, [profile?.uid]);
+
+  useEffect(() => {
+    if (!profile) return;
+    
+    // Periodically update lastActive to track when user was last seen
+    // Increased interval to 5 minutes to reduce writes/reads
+    const updateActivity = async () => {
+      try {
+        await updateDoc(doc(db, 'users', profile.uid), {
+          lastActive: new Date().toISOString()
+        });
+      } catch (err) {
+        // Silently fail activity update if unauthorized
+      }
+    };
+    
+    const activityInterval = setInterval(updateActivity, 300000); // Every 5 minutes
+    updateActivity(); // Initial update
+
+    return () => {
+      clearInterval(activityInterval);
+    };
+  }, [profile?.uid]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#FFD700] dark:bg-[#050505] text-blue-900 dark:text-gray-100 font-mono">
@@ -216,8 +270,9 @@ export default function App() {
   }
 
   return (
-    <AuthContext.Provider value={{ user: profile, loading, error }}>
-      <div className="min-h-screen bg-[#FFD700] dark:bg-[#050505] text-white dark:text-gray-100 font-sans flex flex-col relative grid-pattern">
+    <AuthContext.Provider value={{ user: profile, users: personnel, loading, error }}>
+      <VoterProvider>
+        <div className="min-h-screen bg-[#FFD700] dark:bg-[#050505] text-white dark:text-gray-100 font-sans flex flex-col relative grid-pattern">
         {/* Top Header */}
         <header className="h-16 border-b border-[#004A8F] dark:border-[#333333] flex items-center justify-between px-4 md:px-8 bg-[#002B5B] dark:bg-[#141414]/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-4">
@@ -333,7 +388,7 @@ export default function App() {
                   />
                 </>
               )}
-              {profile?.role === 'admin' && (
+              {(profile?.role === 'admin' || firebaseUser?.email === 'aliumar@gmail.com') && (
                 <>
                   <NavButton 
                     active={activeTab === 'bulk_upload'} 
@@ -344,18 +399,12 @@ export default function App() {
                 </>
               )}
               <NavButton 
-                active={activeTab === 'messages'} 
-                onClick={() => setActiveTab('messages')}
-                icon={<MessageSquare className="w-4 h-4" />}
-                label="Comms"
-              />
-              <NavButton 
                 active={activeTab === 'mapping'} 
                 onClick={() => setActiveTab('mapping')}
                 icon={<MapPin className="w-4 h-4" />}
                 label="Maafannu Map"
               />
-              {profile?.role === 'admin' && (
+              {(profile?.role === 'admin' || firebaseUser?.email === 'aliumar@gmail.com') && (
                 <NavButton 
                   active={activeTab === 'admin'} 
                   onClick={() => setActiveTab('admin')}
@@ -374,7 +423,6 @@ export default function App() {
                 {activeTab === 'voters' && <VoterList key="voters" onRegisterClick={() => setActiveTab('add_voter')} />}
                 {activeTab === 'add_voter' && <VoterCreatorView key="add_voter" />}
                 {activeTab === 'bulk_upload' && <BulkUpload key="bulk_upload" />}
-                {activeTab === 'messages' && <Messaging key="messages" />}
                 {activeTab === 'mapping' && <MapView />}
                 {activeTab === 'admin' && <AdminPanel key="admin" />}
               </AnimatePresence>
@@ -408,14 +456,6 @@ export default function App() {
               label="Voters"
             />
           </div>
-          <div className="snap-center shrink-0">
-            <MobileNavButton 
-              active={activeTab === 'messages'} 
-              onClick={() => setActiveTab('messages')}
-              icon={<MessageSquare className="w-5 h-5" />}
-              label="Chat"
-            />
-          </div>
           {(profile?.role === 'admin' || profile?.role === 'leader') && (
             <div className="snap-center shrink-0">
               <MobileNavButton 
@@ -426,7 +466,7 @@ export default function App() {
               />
             </div>
           )}
-          {profile?.role === 'admin' && (
+          {(profile?.role === 'admin' || firebaseUser?.email === 'aliumar@gmail.com') && (
             <>
               <div className="snap-center shrink-0">
                 <MobileNavButton 
@@ -459,6 +499,7 @@ export default function App() {
           </div>
         </footer>
       </div>
+      </VoterProvider>
     </AuthContext.Provider>
   );
 }

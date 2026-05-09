@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Voter } from '../types';
 import { useAuth } from '../App';
+import { useVoters } from '../contexts/VoterContext';
 import { MapPin, Search, User, Phone, Map as MapIcon, X, Navigation, ChevronDown, ChevronRight } from 'lucide-react';
 
 // Fix Leaflet marker icon issues in React
@@ -40,7 +41,7 @@ const MapEventsComponent = ({ onClick }: { onClick: (lat: number, lng: number) =
 
 export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Voter) => void }) {
   const { user } = useAuth();
-  const [voters, setVoters] = useState<Voter[]>([]);
+  const { voters } = useVoters();
   const [selectedVoterForPin, setSelectedVoterForPin] = useState<Voter | null>(null);
   const [droppedPin, setDroppedPin] = useState<{lat: number, lng: number} | null>(null);
   const [isPinMode, setIsPinMode] = useState(false);
@@ -80,14 +81,6 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
   };
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'voters'), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data() } as Voter));
-      setVoters(data);
-    });
-    return () => unsub();
-  }, []);
 
   const votersWithLocation = voters.filter(v => v.latitude && v.longitude);
   const votersWithoutLocation = voters.filter(v => !v.latitude || !v.longitude);
@@ -411,8 +404,12 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                       {group.voters.map(v => (
                         <div key={v.voterId} className="pb-3 border-b border-[#004A8F] dark:border-[#333333] last:border-0 last:pb-0">
                           <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 rounded-full bg-[#FFD700] dark:bg-[#050505] flex shadow-[0_0_0_1px_rgba(0,0,0,0.05)] items-center justify-center shrink-0">
-                              <User className="w-4 h-4 text-blue-300 dark:text-gray-400" />
+                            <div className="w-8 h-8 rounded-full bg-[#FFD700] dark:bg-[#050505] overflow-hidden flex shadow-[0_0_0_1px_rgba(0,0,0,0.05)] items-center justify-center shrink-0">
+                              {v.photoUrl ? (
+                                <img src={v.photoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              ) : (
+                                <User className="w-4 h-4 text-blue-300 dark:text-gray-400" />
+                              )}
                             </div>
                             <div>
                               <p className="text-xs font-bold text-blue-50 dark:text-gray-300 leading-tight">{v.fullName}</p>

@@ -8,25 +8,6 @@ export interface CampaignUser {
   districtId?: string;
   createdAt: string;
   lastActive: string;
-  publicKey?: any; // JWK public key for E2EE
-}
-
-export interface Chat {
-  id: string;
-  type: 'direct' | 'group';
-  name?: string; // for group chats
-  participants: string[];
-  encryptedKeys: Record<string, string>; // mapping of uid to encrypted ChatKey
-  lastMessage?: string;
-  updatedAt?: any; // Firestore Timestamp
-}
-
-export interface ChatMessage {
-  id: string;
-  chatId: string;
-  senderId: string;
-  encryptedText: string;
-  createdAt: any; // Firestore Timestamp
 }
 
 export type SupportLevel = 'strong_support' | 'lean_support' | 'undecided' | 'lean_opposition' | 'strong_opposition';

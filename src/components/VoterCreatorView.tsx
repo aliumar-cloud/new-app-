@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Upload,
   Camera,
+  Clipboard,
   User
 } from 'lucide-react';
 import { db, storage, handleFirestoreError, OperationType } from '../firebase';
@@ -18,9 +19,11 @@ import { collection, doc, setDoc, serverTimestamp, onSnapshot, query } from 'fir
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Voter, SupportLevel } from '../types';
 import { useAuth } from '../App';
+import { useVoters } from '../contexts/VoterContext';
 
 export default function VoterCreatorView() {
   const { user } = useAuth();
+  const { refreshVoters } = useVoters();
   const [formData, setFormData] = useState({
     voterId: '',
     fullName: '',
@@ -39,10 +42,7 @@ export default function VoterCreatorView() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processImage = async (file: File | Blob) => {
     setError(null);
     setUploading(true);
     try {
@@ -73,9 +73,28 @@ export default function VoterCreatorView() {
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
           
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          setFormData(prev => ({ ...prev, photoUrl: dataUrl }));
-          setUploading(false);
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              setError("Failed to process image blob.");
+              setUploading(false);
+              return;
+            }
+            
+            try {
+              const safeId = formData.voterId.trim() || `temp_${Date.now()}`;
+              const fileName = `voter_photos/${safeId}.jpg`;
+              const storageRef = ref(storage, fileName);
+              const snapshot = await uploadBytes(storageRef, blob);
+              const downloadURL = await getDownloadURL(snapshot.ref);
+              
+              setFormData(prev => ({ ...prev, photoUrl: downloadURL }));
+              setUploading(false);
+            } catch (storageErr: any) {
+              console.error("Storage error:", storageErr);
+              setError(`Upload failed: ${storageErr.message}`);
+              setUploading(false);
+            }
+          }, 'image/jpeg', 0.7);
         };
         img.onerror = () => {
           setError("Failed to parse image file.");
@@ -92,6 +111,46 @@ export default function VoterCreatorView() {
       console.error("Upload error:", err);
       setError("Failed to process image.");
       setUploading(false);
+    }
+  };
+  
+  const handleClipboardPaste = async () => {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        // Fallback for browsers that don't support read() but might support readText() or just don't allow programmatic image paste
+        setError("Direct clipboard access is restricted. Try using Ctrl+V or your keyboard's paste button.");
+        return;
+      }
+      
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith("image/")) {
+            const blob = await item.getType(type);
+            if (blob) processImage(blob);
+            return;
+          }
+        }
+      }
+      setError("No image found in clipboard.");
+    } catch (err: any) {
+      console.error("Clipboard error:", err);
+      setError("Clipboard access denied or unsupported.");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processImage(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+            const blob = items[i].getAsFile();
+            if (blob) processImage(blob);
+        }
     }
   };
 
@@ -122,6 +181,7 @@ export default function VoterCreatorView() {
         updatedAt: serverTimestamp()
       };
       await setDoc(doc(db, 'voters', trimmedId), voterData);
+      refreshVoters();
       setSuccess(true);
       setFormData({
         voterId: '',
@@ -192,7 +252,7 @@ export default function VoterCreatorView() {
       </div>
 
       <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-[40px] shadow-sm overflow-hidden p-8 md:p-12">
-        <form onSubmit={handleSave} className="space-y-10 group">
+        <form onSubmit={handleSave} onPaste={handlePaste} className="space-y-10 group">
           <div className="flex flex-col md:flex-row gap-10 items-start">
             {/* Photo Section */}
             <div className="w-full md:w-auto flex flex-col items-center gap-4">
@@ -208,13 +268,19 @@ export default function VoterCreatorView() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-all">
-                  <Upload className="w-3 h-3" /> Library
-                </button>
-                <button type="button" onClick={() => cameraInputRef.current?.click()} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-all">
-                  <Camera className="w-3 h-3" /> Capture
-                </button>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-all">
+                    <Upload className="w-3 h-3" /> Library
+                  </button>
+                  <button type="button" onClick={() => cameraInputRef.current?.click()} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-all">
+                    <Camera className="w-3 h-3" /> Capture
+                  </button>
+                  <button type="button" onClick={handleClipboardPaste} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-all">
+                    <Clipboard className="w-3 h-3" /> Paste
+                  </button>
+                </div>
+                <p className="text-[8px] font-bold text-blue-300/40 dark:text-gray-500 uppercase tracking-widest text-center">Ctrl+V to Paste</p>
               </div>
               <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
               <input ref={cameraInputRef} type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />

@@ -17,11 +17,12 @@ import {
   Database
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, query, limit, doc } from 'firebase/firestore';
+import { onSnapshot, doc } from 'firebase/firestore';
 import { Voter, CampaignConfig } from '../types';
+import { useVoters } from '../contexts/VoterContext';
 
 export default function DashboardView() {
-  const [voters, setVoters] = useState<Voter[]>([]);
+  const { voters, loading: votersLoading } = useVoters();
   const [config, setConfig] = useState<CampaignConfig>({
     electionName: 'Election Day Stats',
     electionDate: '',
@@ -30,21 +31,14 @@ export default function DashboardView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'voters'));
-    const unsubscribeV = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => doc.data() as Voter);
-      setVoters(data);
-      setLoading(false);
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'voters'));
-
     const unsubscribeC = onSnapshot(doc(db, 'config', 'global'), (doc) => {
       if (doc.exists()) {
         setConfig(doc.data() as CampaignConfig);
       }
+      setLoading(false);
     });
 
     return () => {
-      unsubscribeV();
       unsubscribeC();
     };
   }, []);
@@ -79,7 +73,7 @@ export default function DashboardView() {
             {config.electionDate ? new Date(config.electionDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'SET_DATE_PENDING'}
           </p>
           
-          <h2 className="text-blue-300 dark:text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mb-4">Total Secured Records</h2>
+          <h2 className="text-blue-300 dark:text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mb-4">Eligible to Vote</h2>
           <div className="text-6xl md:text-8xl font-black text-[#DAA520] dark:text-[#FFD700] tracking-tighter mb-8 tabular-nums">
             {totalVoters.toLocaleString()}
           </div>
