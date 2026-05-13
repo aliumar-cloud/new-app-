@@ -211,18 +211,18 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#FFD700] dark:bg-[#050505] text-blue-900 dark:text-gray-100 font-mono">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#36454F] dark:bg-[#050505] text-slate-50 dark:text-gray-100 font-mono">
         <div className="w-16 h-16 bg-transparent rounded-full flex items-center justify-center shadow-xl overflow-hidden border-2 border-[#DAA520] animate-pulse mb-6">
           <img src="https://iili.io/BLKhJf4.png" alt="Vote Adey" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         </div>
-        <p className="text-xs uppercase tracking-[0.3em] font-bold text-[#002B5B] dark:text-gray-100">Initializing Vote Adey...</p>
+        <p className="text-xs uppercase tracking-[0.3em] font-bold text-slate-100 dark:text-gray-100">Initializing Vote Adey...</p>
       </div>
     );
   }
 
   if (!firebaseUser) {
     return (
-      <div className="min-h-screen bg-[#FFD700] dark:bg-[#050505] flex items-center justify-center p-6 text-[#002B5B] dark:text-gray-100 font-sans overflow-hidden">
+      <div className="min-h-screen bg-[#36454F] dark:bg-[#050505] flex items-center justify-center p-6 text-slate-50 dark:text-gray-100 font-sans overflow-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="h-full w-full bg-[linear-gradient(to_right,#141414_1px,transparent_1px),linear-gradient(to_bottom,#141414_1px,transparent_1px)] bg-[size:40px_40px]"></div>
         </div>
@@ -272,14 +272,14 @@ export default function App() {
   return (
     <AuthContext.Provider value={{ user: profile, users: personnel, loading, error }}>
       <VoterProvider>
-        <div className="min-h-screen bg-[#FFD700] dark:bg-[#050505] text-white dark:text-gray-100 font-sans flex flex-col relative grid-pattern">
+        <div className="min-h-screen bg-[#36454F] dark:bg-[#050505] text-slate-50 dark:text-gray-100 font-sans flex flex-col relative grid-pattern">
         {/* Top Header */}
         <header className="h-16 border-b border-[#004A8F] dark:border-[#333333] flex items-center justify-between px-4 md:px-8 bg-[#002B5B] dark:bg-[#141414]/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-transparent rounded-full flex items-center justify-center overflow-hidden border-2 border-[#DAA520] shadow-lg flex-shrink-0">
               <img src="https://iili.io/BLKhJf4.png" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </div>
-            <h1 className="text-xl font-black tracking-tighter text-white dark:text-gray-100 italic">VOTE<span className="text-[#DAA520] dark:text-[#FFD700]">ADEY</span></h1>
+            <h1 className="text-xl font-black tracking-tighter text-white dark:text-gray-100 italic">VOTE<span className="text-[#DAA520]">ADEY</span></h1>
           </div>
           
           <div className="flex-1 flex items-center justify-end gap-4 md:gap-8">
@@ -294,12 +294,12 @@ export default function App() {
                 className="p-2 rounded-xl bg-[#003B73] hover:bg-[#004A8F] dark:bg-[#1f1f1f] dark:hover:bg-[#333333] transition-colors"
                 title="Toggle Theme"
               >
-                {isDarkMode ? <Sun className="w-4 h-4 text-[#FFD700]" /> : <Moon className="w-4 h-4 text-blue-200" />}
+                {isDarkMode ? <Sun className="w-4 h-4 text-[#DAA520]" /> : <Moon className="w-4 h-4 text-blue-200" />}
               </button>
               {profile?.role === 'admin' && (
                 <div className="relative group hidden sm:block">
                   <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white dark:text-gray-100 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#DAA520] dark:text-[#FFD700]" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#DAA520] dark:text-[#DAA520]" />
                     Admin Menu
                   </button>
                   <div className="absolute right-0 mt-2 w-56 bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-2xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2">
@@ -314,7 +314,7 @@ export default function App() {
                       onClick={() => setActiveTab('admin')}
                       className="w-full text-left px-4 py-3 rounded-xl hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f] transition-colors flex items-center gap-3"
                     >
-                      <Database className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+                      <Database className="w-4 h-4 text-[#DAA520] dark:text-[#DAA520]" />
                       <span className="text-xs font-semibold text-blue-100 dark:text-gray-400">System Console</span>
                     </button>
                     <button 
@@ -346,8 +346,8 @@ export default function App() {
                 <p className="text-sm font-semibold">{profile?.displayName}</p>
                 <p className="text-[10px] text-blue-300 dark:text-gray-400 uppercase font-mono">{profile?.role}</p>
               </div>
-              <div className="w-9 h-9 rounded-full border-2 border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 p-0.5">
-                <div className="w-full h-full rounded-full bg-[#FFD700] dark:bg-[#050505] flex items-center justify-center text-[10px] font-bold text-blue-200 dark:text-gray-300">
+              <div className="w-9 h-9 rounded-full border-2 border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/20 dark:border-[#DAA520] dark:border-[#333333]/20 p-0.5">
+                <div className="w-full h-full rounded-full bg-[#DAA520] dark:bg-[#050505] flex items-center justify-center text-[10px] font-bold text-blue-200 dark:text-gray-300">
                   {profile?.displayName?.[0] || 'U'}
                 </div>
               </div>
@@ -510,7 +510,7 @@ function NavButton({ active, onClick, icon, label }: { active: boolean, onClick:
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-xl transition-all border shadow-sm ${
         active 
-          ? 'bg-gradient-to-r from-[#FFD700] dark:from-[#333333] to-[#E5C100] dark:to-[#1a1a1a] text-[#002B5B] dark:text-gray-100 font-bold border-[#E5C100] dark:border-[#555555]' 
+          ? 'bg-gradient-to-r from-[#DAA520] dark:from-[#333333] to-[#E5C100] dark:to-[#1a1a1a] text-[#002B5B] dark:text-gray-100 font-bold border-[#E5C100] dark:border-[#555555]' 
           : 'bg-gradient-to-r from-[#003B73] dark:from-[#1f1f1f] to-[#002B5B] dark:to-[#141414] text-white dark:text-gray-100 border-[#004A8F] dark:border-[#333333] hover:from-[#004A8F] dark:hover:from-[#2a2a2a] hover:to-[#003B73] dark:hover:to-[#1f1f1f]'
       }`}
     >
@@ -528,7 +528,7 @@ function MobileNavButton({ active, onClick, icon, label }: { active: boolean, on
       onClick={onClick}
       className={`flex flex-col items-center justify-center min-w-[64px] py-1.5 px-2 rounded-xl border shadow-sm transition-all ${
         active 
-          ? 'bg-gradient-to-r from-[#FFD700] dark:from-[#333333] to-[#E5C100] dark:to-[#1a1a1a] text-[#002B5B] dark:text-gray-100 border-[#E5C100] dark:border-[#555555]' 
+          ? 'bg-gradient-to-r from-[#DAA520] dark:from-[#333333] to-[#E5C100] dark:to-[#1a1a1a] text-[#002B5B] dark:text-gray-100 border-[#E5C100] dark:border-[#555555]' 
           : 'bg-gradient-to-b from-[#003B73] dark:from-[#1f1f1f] to-[#002B5B] dark:to-[#141414] text-blue-100 dark:text-gray-400 border-[#004A8F] dark:border-[#333333]'
       }`}
     >

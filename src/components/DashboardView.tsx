@@ -74,14 +74,14 @@ export default function DashboardView() {
           </p>
           
           <h2 className="text-blue-300 dark:text-gray-400 text-[10px] font-black uppercase tracking-[0.3em] mb-4">Eligible to Vote</h2>
-          <div className="text-6xl md:text-8xl font-black text-[#DAA520] dark:text-[#FFD700] tracking-tighter mb-8 tabular-nums">
+          <div className="text-6xl md:text-8xl font-black text-[#DAA520] tracking-tighter mb-8 tabular-nums">
             {totalVoters.toLocaleString()}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <div className="px-5 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
                Turnout: {turnoutPercentage.toFixed(1)}%
             </div>
-            <div className="px-5 py-2 bg-[#DAA520]/5 border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 rounded-full text-[10px] text-[#DAA520] dark:text-[#FFD700] font-bold uppercase tracking-wider font-mono">
+            <div className="px-5 py-2 bg-[#DAA520]/5 border border-[#DAA520] rounded-full text-[10px] text-[#DAA520] font-bold uppercase tracking-wider font-mono">
               SUPPORT: {supportPercentage.toFixed(1)}%
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function DashboardView() {
         <div className="lg:col-span-8 bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
             <h3 className="text-xs font-bold uppercase tracking-widest text-blue-300 dark:text-gray-400 flex items-center gap-2 font-mono">
-              <TrendingUp className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+              <TrendingUp className="w-4 h-4 text-[#DAA520] dark:text-[#DAA520]" />
               SENTIMENT_CHART
             </h3>
             <span className="text-[9px] font-mono text-slate-300 uppercase tracking-tighter">DATA_STREAM_08</span>
@@ -144,7 +144,7 @@ export default function DashboardView() {
 
         <div className="lg:col-span-4 bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-3xl p-8 flex flex-col shadow-sm">
           <h3 className="text-xs font-bold uppercase tracking-widest text-blue-300 dark:text-gray-400 mb-8 flex items-center gap-2 font-mono">
-             <Target className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+             <Target className="w-4 h-4 text-[#DAA520] dark:text-[#DAA520]" />
              STRATEGIC_GOALS
           </h3>
           <div className="flex-1 flex flex-col justify-center gap-10">
@@ -156,7 +156,7 @@ export default function DashboardView() {
                 </span>
                 <span className="text-white dark:text-gray-100">{targetVotes > 0 ? (supporters / targetVotes * 100).toFixed(0) : 0}%</span>
               </div>
-              <div className="h-2 bg-[#FFD700] dark:bg-[#050505] rounded-full overflow-hidden">
+              <div className="h-2 bg-slate-200 dark:bg-[#050505] rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${targetVotes > 0 ? (supporters / targetVotes * 100) : 0}%` }}
@@ -172,7 +172,7 @@ export default function DashboardView() {
                 </span>
                 <span className="text-white dark:text-gray-100">{turnoutPercentage.toFixed(0)}%</span>
               </div>
-              <div className="h-2 bg-[#FFD700] dark:bg-[#050505] rounded-full overflow-hidden">
+              <div className="h-2 bg-slate-200 dark:bg-[#050505] rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${turnoutPercentage}%` }}
@@ -184,7 +184,7 @@ export default function DashboardView() {
             <div className="mt-4 pt-6 border-t border-[#004A8F] dark:border-[#333333] space-y-4 font-mono">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-2xl bg-[#DAA520]/10">
-                  <BarChart3 className="w-5 h-5 text-[#DAA520] dark:text-[#FFD700]" />
+                  <BarChart3 className="w-5 h-5 text-[#DAA520] dark:text-[#DAA520]" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-tighter">Live Status</p>
@@ -201,7 +201,7 @@ export default function DashboardView() {
 
 function StatCard({ label, value, sub, icon, color = "#fff" }: { label: string, value: string, sub: string, icon: React.ReactNode, color?: string }) {
   return (
-    <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-6 rounded-3xl group hover:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/30 dark:border-[#FFD700] dark:border-[#333333]/30 transition-all shadow-sm">
+    <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-6 rounded-3xl group hover:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/30 dark:border-[#DAA520] dark:border-[#333333]/30 transition-all shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <span className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest font-mono">{label}</span>
         <div style={{ color }} className="opacity-60 group-hover:opacity-100 transition-opacity">

@@ -103,6 +103,17 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
     groupedVoters['All Voters (Sorted by Address)'].sort((a, b) => (a.address || '').localeCompare(b.address || ''));
   }
 
+  const voterGlobalIndices = React.useMemo(() => {
+    const indices: Record<string, number> = {};
+    let currentCount = 1;
+    (Object.entries(groupedVoters) as [string, Voter[]][]).forEach(([_, group]) => {
+      group.forEach(v => {
+        indices[v.voterId] = currentCount++;
+      });
+    });
+    return indices;
+  }, [groupedVoters]);
+
   const handleToggleSupport = async (e: React.MouseEvent, voter: Voter) => {
     e.stopPropagation();
     const newSupportLevel = voter.supportLevel === 'strong_support' ? 'undecided' : 'strong_support';
@@ -235,7 +246,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
           <input 
             type="text" 
             placeholder="Search verified records..." 
-            className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-3 pl-12 pr-4 text-sm text-white dark:text-gray-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] transition-all"
+            className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-3 pl-12 pr-4 text-sm text-white dark:text-gray-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] transition-all"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -288,9 +299,9 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                           setShowAddMenu(false);
                           setBulkAssignMode(!bulkAssignMode);
                         }}
-                        className={`flex items-center gap-3 px-4 py-3 text-left w-full text-xs font-bold uppercase tracking-widest hover:bg-[#003B73] dark:hover:bg-[#1f1f1f] transition-all ${bulkAssignMode ? 'text-[#FFD700]' : 'text-white dark:text-gray-100'}`}
+                        className={`flex items-center gap-3 px-4 py-3 text-left w-full text-xs font-bold uppercase tracking-widest hover:bg-[#003B73] dark:hover:bg-[#1f1f1f] transition-all ${bulkAssignMode ? 'text-[#DAA520]' : 'text-white dark:text-gray-100'}`}
                       >
-                        <Users className={`w-4 h-4 ${bulkAssignMode ? 'text-[#FFD700]' : 'text-blue-300'}`} />
+                        <Users className={`w-4 h-4 ${bulkAssignMode ? 'text-[#DAA520]' : 'text-blue-300'}`} />
                         Bulk Assign
                       </button>
                     </div>
@@ -342,15 +353,14 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                 <div className="flex flex-wrap gap-2">
                   <button 
                     onClick={() => setSentimentFilter('all')}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${sentimentFilter === 'all' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${sentimentFilter === 'all' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
                   >
                     ALL
                   </button>
                   {(['strong_support', 'lean_support', 'undecided', 'lean_opposition', 'strong_opposition'] as SupportLevel[]).map(level => (
                     <button 
-                      key={level}
                       onClick={() => setSentimentFilter(level)}
-                      className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${sentimentFilter === level ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${sentimentFilter === level ? 'bg-[#DAA520] border-[#DAA520] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#DAA520]/20'}`}
                     >
                       {level.replace('_', ' ').toUpperCase()}
                     </button>
@@ -362,19 +372,19 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setStatusFilter('all')}
-                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${statusFilter === 'all' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${statusFilter === 'all' ? 'bg-[#DAA520] border-[#DAA520] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#DAA520]/20'}`}
                   >
                     ALL STATUSES
                   </button>
                   <button 
                     onClick={() => setStatusFilter('voted')}
-                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${statusFilter === 'voted' ? 'bg-emerald-500 border-emerald-500 text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${statusFilter === 'voted' ? 'bg-emerald-500 border-emerald-500 text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
                   >
                     SYNCED (VOTED)
                   </button>
                   <button 
                     onClick={() => setStatusFilter('not_voted')}
-                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${statusFilter === 'not_voted' ? 'bg-slate-300 border-[#004A8F] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${statusFilter === 'not_voted' ? 'bg-slate-300 border-[#004A8F] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
                   >
                     PENDING (NOT VOTED)
                   </button>
@@ -385,19 +395,19 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button 
                     onClick={() => setGroupBy('station')}
-                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'station' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'station' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
                   >
                     POLLING STATION
                   </button>
                   <button 
                     onClick={() => setGroupBy('address')}
-                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'address' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'address' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
                   >
                     ADDRESS
                   </button>
                   <button 
                     onClick={() => setGroupBy('assigned')}
-                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'assigned' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
+                    className={`flex-1 px-4 py-2 rounded-xl text-[10px] font-bold transition-all border ${groupBy === 'assigned' ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] text-white dark:text-gray-100' : 'bg-[#003B73] dark:bg-[#1f1f1f] border-[#004A8F] dark:border-[#333333] text-blue-200 dark:text-gray-300 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'}`}
                   >
                     ASSIGNED LEADER
                   </button>
@@ -434,7 +444,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                       />
                     )}
                     <button onClick={() => toggleGroup(station)} className="text-xs font-bold text-white dark:text-gray-100 uppercase tracking-widest flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+                      <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#DAA520]" />
                       {station}
                     </button>
                   </div>
@@ -446,20 +456,14 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                   </div>
                 </div>
                 {!collapsedGroups.has(station) && (
-                  <div className="divide-y divide-slate-50">
+                  <div className="divide-y divide-[#004A8F]/30">
                     {groupVoters.map((voter) => (
                       <motion.div
                         key={voter.voterId}
                         onClick={() => user?.role === 'admin' ? setSelectedVoter(voter) : null}
-                        className={`grid grid-cols-12 gap-2 md:gap-4 px-4 md:px-8 py-4 md:py-6 items-center ${user?.role === 'admin' ? 'cursor-pointer' : ''} transition-all group border-b border-b-sky-100/50 ${
-                          voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support' ? 'border-4 border-emerald-500' :
-                          voter.supportLevel === 'strong_opposition' || voter.supportLevel === 'lean_opposition' ? 'border-4 border-red-500' :
-                          'border-l-4 border-l-transparent'
-                        } ${
+                        className={`grid grid-cols-12 gap-2 md:gap-4 px-4 md:px-8 py-4 md:py-6 items-center relative ${user?.role === 'admin' ? 'cursor-pointer' : ''} transition-all group border-b border-sky-100/50 border-l-4 border-l-transparent ${
                           voter.votedStatus ? 'bg-[#003B73] dark:bg-[#1f1f1f]/80 border-l-slate-300 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]' :
                           'bg-[#002B5B] dark:bg-[#141414] hover:border-l-[#DAA520] hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'
-                        } ${
-                          !(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support' || voter.supportLevel === 'strong_opposition' || voter.supportLevel === 'lean_opposition') && voter.votedStatus ? 'border-l-slate-300' : ''
                         }`}
                       >
                         {bulkAssignMode && (
@@ -474,20 +478,20 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                           </div>
                         )}
                         <div className={`${bulkAssignMode ? 'col-span-11 md:col-span-6' : 'col-span-12 md:col-span-7'} mb-2 md:mb-0 flex items-center gap-4`}>
-                          <div className="w-10 h-10 rounded-full bg-[#FFD700] dark:bg-[#050505] overflow-hidden shrink-0 border border-[#004A8F] dark:border-[#333333]">
+                          <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-[#050505] overflow-hidden shrink-0 border border-slate-300 dark:border-[#333333] relative">
                             {voter.photoUrl ? (
                               <img src={voter.photoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-blue-300 dark:text-gray-400">
+                              <div className="w-full h-full flex items-center justify-center text-slate-400">
                                 <User className="w-4 h-4" />
                               </div>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 w-full">
-                              <p className="text-sm font-bold text-white dark:text-gray-100 group-hover:text-[#DAA520] dark:hover:text-[#FFD700] transition-colors truncate shrink-0">{voter.fullName}</p>
+                              <p className="text-sm font-bold text-white dark:text-gray-100 group-hover:text-[#DAA520] transition-colors truncate shrink-0">{voter.fullName}</p>
                               {voter.address && (
-                                <p className="text-sm font-bold text-[#DAA520] dark:text-[#FFD700] uppercase truncate text-right flex-1">{voter.address}</p>
+                                <p className="text-sm font-bold text-[#DAA520] uppercase truncate text-right flex-1">{voter.address}</p>
                               )}
                             </div>
                             <p className="text-sm font-bold text-rose-500 uppercase mt-0.5">{voter.voterId}</p>
@@ -500,7 +504,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                               </div>
                             )}
                             {voter.phone && (
-                              <a href={`tel:${voter.phone}`} target="_top" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold tracking-wider text-[#DAA520] dark:text-[#FFD700] hover:text-[#B8860B] w-max bg-[#DAA520]/5 px-2 py-1 rounded-full border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 transition-colors">
+                              <a href={`tel:${voter.phone}`} target="_top" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold tracking-wider text-[#DAA520] hover:text-[#B8860B] w-max bg-[#DAA520]/5 px-2 py-1 rounded-full border border-[#DAA520] transition-colors">
                                 <Phone className="w-3 h-3" />
                                 {voter.phone}
                               </a>
@@ -524,7 +528,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                             </button>
                             <button 
                               onClick={(e) => handleToggleSupport(e, voter)} 
-                              className={`flex-1 py-2 px-1 rounded-xl text-[9px] font-bold uppercase transition-all flex flex-col items-center justify-center gap-1 ${(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'bg-[#DAA520] dark:bg-[#FFD700] text-gray-900 shadow-md transform scale-105' : 'text-blue-300 dark:text-gray-400 hover:bg-[#DAA520]/10 hover:text-[#DAA520]'}`}
+                              className={`flex-1 py-2 px-1 rounded-xl text-[9px] font-bold uppercase transition-all flex flex-col items-center justify-center gap-1 ${(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'bg-[#DAA520] dark:bg-[#DAA520] text-gray-900 shadow-md transform scale-105' : 'text-blue-300 dark:text-gray-400 hover:bg-[#DAA520]/10 hover:text-[#DAA520]'}`}
                             >
                               Support
                             </button>
@@ -538,6 +542,18 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                             </button>
                           </div>
                         </div>
+                        
+                        <div className="absolute bottom-1 left-1 z-10 bg-[#002B5B]/90 dark:bg-[#141414]/90 backdrop-blur-md text-white text-[8px] font-black px-1.5 py-0.5 rounded border border-[#DAA520]/20 shadow-sm pointer-events-none">
+                          {voterGlobalIndices[voter.voterId]}
+                        </div>
+
+                        {/* Right side sentiment bar */}
+                        {(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') && (
+                          <div className="absolute top-[25%] right-0 bottom-[25%] w-2 bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)] z-20" />
+                        )}
+                        {(voter.supportLevel === 'strong_opposition' || voter.supportLevel === 'lean_opposition') && (
+                          <div className="absolute top-[25%] right-0 bottom-[25%] w-2 bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)] z-20" />
+                        )}
                       </motion.div>
                     ))}
                   </div>
@@ -570,7 +586,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                     />
                   )}
                   <button onClick={() => toggleGroup(station + '_grid')} className="text-sm font-black text-white dark:text-gray-100 uppercase tracking-widest flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+                    <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#DAA520]" />
                     {station}
                   </button>
                   <div className="h-px bg-[#004A8F] dark:bg-[#333333] flex-1 mx-4"></div>
@@ -582,12 +598,12 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                       <motion.div
                         key={voter.voterId}
                         onClick={() => bulkAssignMode ? toggleSelection({stopPropagation:()=>{}} as any, voter.voterId) : (user?.role === 'admin' ? setSelectedVoter(voter) : null)}
-                        className={`border rounded-3xl overflow-hidden shadow-sm hover:shadow-md ${user?.role === 'admin' || bulkAssignMode ? 'cursor-pointer' : ''} transition-all group flex flex-col relative ${
-                          bulkAssignMode && selectedIds.has(voter.voterId) ? 'ring-2 ring-[#DAA520] transform scale-[0.98]' : ''
-                        } ${
-                          voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support' ? 'border-4 border-emerald-500' :
-                          voter.supportLevel === 'strong_opposition' || voter.supportLevel === 'lean_opposition' ? 'border-4 border-red-500' :
+                        className={`border-4 rounded-[32px] overflow-hidden shadow-sm hover:shadow-md ${user?.role === 'admin' || bulkAssignMode ? 'cursor-pointer' : ''} transition-all group flex flex-col relative ${
+                          (voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' :
+                          (voter.supportLevel === 'strong_opposition' || voter.supportLevel === 'lean_opposition') ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' :
                           'border-[#004A8F] dark:border-[#333333]'
+                        } ${
+                          bulkAssignMode && selectedIds.has(voter.voterId) ? 'ring-2 ring-[#DAA520] transform scale-[0.98]' : ''
                         } ${
                           voter.votedStatus ? 'bg-[#003B73] dark:bg-[#1f1f1f] hover:border-[#004A8F] dark:hover:border-[#333333]' :
                           'bg-[#002B5B] dark:bg-[#141414] hover:border-[#DAA520] hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'
@@ -603,7 +619,10 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                             />
                           </div>
                         )}
-                        <div className="aspect-square bg-[#FFD700] dark:bg-[#050505] relative">
+                        <div className="aspect-square bg-slate-100 dark:bg-[#050505] relative">
+                          <div className="absolute top-2 left-2 z-10 bg-[#002B5B]/80 dark:bg-[#141414]/80 backdrop-blur-sm text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-[#DAA520]/20 shadow-lg">
+                            {voterGlobalIndices[voter.voterId]}
+                          </div>
                           {voter.photoUrl ? (
                             <img src={voter.photoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           ) : (
@@ -623,9 +642,9 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                           <div>
                             <div className="flex w-full items-start justify-between gap-2 mb-1">
                               <div className="flex flex-col flex-1 min-w-0">
-                                <p className="text-[15px] font-black text-white dark:text-gray-100 truncate group-hover:text-[#DAA520] dark:hover:text-[#FFD700] transition-colors pb-1">{voter.fullName}</p>
+                                <p className="text-[15px] font-black text-white dark:text-gray-100 truncate group-hover:text-[#DAA520] dark:hover:text-[#DAA520] transition-colors pb-1">{voter.fullName}</p>
                                 {voter.address ? (
-                                  <p className="text-[10px] font-bold text-[#DAA520] dark:text-[#FFD700] uppercase truncate leading-tight flex items-center gap-1.5 mb-1.5">
+                                  <p className="text-[10px] font-bold text-[#DAA520] dark:text-[#DAA520] uppercase truncate leading-tight flex items-center gap-1.5 mb-1.5">
                                     <MapPin className="w-3 h-3 flex-shrink-0 opacity-80" />
                                     <span className="truncate">{voter.address}</span>
                                   </p>
@@ -657,7 +676,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                               </div>
                             )}
                             {voter.phone && (
-                              <a href={`tel:${voter.phone}`} target="_top" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold tracking-wider text-[#DAA520] dark:text-[#FFD700] hover:text-[#B8860B] w-max bg-[#DAA520]/5 px-2 py-1 rounded-full border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 transition-colors">
+                              <a href={`tel:${voter.phone}`} target="_top" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 mt-1.5 text-[10px] font-bold tracking-wider text-[#DAA520] dark:text-[#DAA520] hover:text-[#B8860B] w-max bg-[#DAA520]/5 px-2 py-1 rounded-full border border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/20 dark:border-[#DAA520] dark:border-[#333333]/20 transition-colors">
                                 <Phone className="w-3 h-3" />
                                 {voter.phone}
                               </a>
@@ -681,7 +700,7 @@ export default function VoterList({ onRegisterClick }: { onRegisterClick: () => 
                                 </button>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handleToggleSupport(e, voter); }} 
-                                  className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'bg-[#DAA520] dark:bg-[#FFD700] text-gray-900 shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] hover:border-[#DAA520]/50'}`}
+                                  className={`flex-1 py-1.5 px-0.5 rounded-lg text-[8px] font-bold uppercase transition-all ${(voter.supportLevel === 'strong_support' || voter.supportLevel === 'lean_support') ? 'bg-[#DAA520] dark:bg-[#DAA520] text-gray-900 shadow-sm' : 'bg-[#002B5B] dark:bg-[#141414] text-blue-300 dark:text-gray-400 border border-[#004A8F] dark:border-[#333333] hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#DAA520] hover:border-[#DAA520]/50'}`}
                                 >
                                   Support
                                 </button>
@@ -992,21 +1011,21 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
                 <div className="flex gap-2">
                   <button 
                      onClick={() => fileInputRef.current?.click()}
-                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
+                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
                   >
                     <Upload className="w-3 h-3" />
                     Library
                   </button>
                   <button 
                      onClick={() => cameraInputRef.current?.click()}
-                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
+                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
                   >
                     <Camera className="w-3 h-3" />
                     Capture
                   </button>
                   <button 
                      onClick={handleClipboardPaste}
-                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
+                     className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
                   >
                     <Clipboard className="w-3 h-3" />
                     Paste
@@ -1018,7 +1037,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="w-10 h-10 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] flex items-center justify-center hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-colors">
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] flex items-center justify-center hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-colors">
             <X className="w-5 h-5 text-blue-300 dark:text-gray-400" />
           </button>
         </div>
@@ -1026,7 +1045,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
         <div className="flex-1 overflow-auto p-6 md:p-10 space-y-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <section className="space-y-4">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-[#DAA520] dark:text-[#FFD700] flex items-center gap-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-[#DAA520] dark:text-[#DAA520] flex items-center gap-2">
                 <Phone className="w-4 h-4" />
                 Identity & Contact
               </label>
@@ -1034,7 +1053,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase">Full Name</label>
                   <input 
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                   />
@@ -1042,7 +1061,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase">Phone</label>
                   <input 
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />
@@ -1050,7 +1069,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase">Polling Station</label>
                   <input 
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]"
                     value={pollingStation}
                     onChange={(e) => setPollingStation(e.target.value)}
                   />
@@ -1058,7 +1077,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase">Assigned Leader</label>
                   <select 
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] text-white dark:text-gray-100"
                     value={assignedTo}
                     onChange={(e) => setAssignedTo(e.target.value)}
                   >
@@ -1071,7 +1090,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase">Registered Address</label>
                   <textarea 
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] min-h-[60px] resize-none"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] min-h-[60px] resize-none"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                   />
@@ -1079,7 +1098,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
                 <div className="space-y-2">
                   <label className="text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase">Photo URL</label>
                   <input 
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-xl p-3 text-sm focus:outline-none focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]"
                     value={photoUrl}
                     onChange={(e) => setPhotoUrl(e.target.value)}
                   />
@@ -1108,7 +1127,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
               </div>
 
                <div className="pt-6 space-y-4">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-[#DAA520] dark:text-[#FFD700] flex items-center gap-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#DAA520] dark:text-[#DAA520] flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4" />
                   Sentiment Matrix
                 </label>
@@ -1119,8 +1138,8 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
                       onClick={() => setSupportLevel(level)}
                       className={`px-2 py-3 border rounded-xl text-[8px] font-black transition-all flex flex-col items-center justify-center ${
                         supportLevel === level 
-                          ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100 shadow-md' 
-                          : 'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/30 dark:border-[#FFD700] dark:border-[#333333]/30 hover:text-blue-200 dark:text-gray-300'
+                          ? 'bg-[#DAA520] border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] text-white dark:text-gray-100 shadow-md' 
+                          : 'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/30 dark:border-[#DAA520] dark:border-[#333333]/30 hover:text-blue-200 dark:text-gray-300'
                       }`}
                     >
                        {level.replace('_', ' ').toUpperCase()}
@@ -1140,7 +1159,7 @@ function VoterEditor({ voter, users, onClose }: { voter: Voter, users: CampaignU
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Enter strategic observations..."
-              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-6 text-sm text-blue-100 dark:text-gray-400 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] min-h-[160px] transition-all resize-none shadow-inner"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-6 text-sm text-blue-100 dark:text-gray-400 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] min-h-[160px] transition-all resize-none shadow-inner"
             />
           </section>
         </div>

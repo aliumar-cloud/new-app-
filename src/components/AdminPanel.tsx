@@ -127,7 +127,7 @@ export default function AdminPanel() {
               <ShieldAlert className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-white dark:text-gray-100 uppercase">System <span className="text-[#DAA520] dark:text-[#FFD700]">Console</span></h2>
+              <h2 className="text-2xl font-black tracking-tight text-white dark:text-gray-100 uppercase">System <span className="text-[#DAA520] dark:text-[#DAA520]">Console</span></h2>
               <p className="text-[10px] text-blue-300 dark:text-gray-400 font-bold tracking-widest uppercase">Operational Integrity & Access</p>
             </div>
           </div>
@@ -176,7 +176,7 @@ export default function AdminPanel() {
                   onClick={() => setIsAddingStaff(true)}
                   className="px-8 py-4 bg-slate-900 text-white dark:text-gray-100 rounded-2xl flex items-center justify-center gap-4 hover:bg-slate-800 transition-all shadow-xl whitespace-nowrap"
                 >
-                  <UserPlus className="w-5 h-5 text-[#DAA520] dark:text-[#FFD700]" />
+                  <UserPlus className="w-5 h-5 text-[#DAA520] dark:text-[#DAA520]" />
                   <span className="text-[10px] font-bold tracking-widest uppercase">Authorize Node</span>
                 </button>
               </div>
@@ -184,7 +184,7 @@ export default function AdminPanel() {
               <section className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] rounded-[40px] overflow-hidden shadow-sm">
                 <div className="px-10 py-8 border-b border-[#004A8F] dark:border-[#333333] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-blue-300 dark:text-gray-400 flex items-center gap-2 font-mono">
-                    <ShieldAlert className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+                    <ShieldAlert className="w-4 h-4 text-[#DAA520] dark:text-[#DAA520]" />
                     Current Campaign Nodes
                   </h3>
                   <div className="px-4 py-2 bg-[#003B73] dark:bg-[#1f1f1f] rounded-full text-[9px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">
@@ -195,8 +195,8 @@ export default function AdminPanel() {
                   {staff.map((s) => (
                     <div key={s.uid} className="px-10 py-6 flex items-center justify-between group hover:bg-[#DAA520]/[0.01] transition-colors">
                       <div className="flex items-center gap-6">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 ${s.role === 'admin' ? 'border-[#DAA520] dark:border-[#FFD700] bg-[#DAA520]/5' : 'border-[#004A8F] dark:border-[#333333] bg-[#003B73] dark:bg-[#1f1f1f]'}`}>
-                          {s.role === 'admin' ? <ShieldAlert className="w-6 h-6 text-[#DAA520] dark:text-[#FFD700]" /> : <User className="w-6 h-6 text-blue-300 dark:text-gray-400" />}
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 ${s.role === 'admin' ? 'border-[#DAA520] dark:border-[#DAA520] bg-[#DAA520]/5' : 'border-[#004A8F] dark:border-[#333333] bg-[#003B73] dark:bg-[#1f1f1f]'}`}>
+                          {s.role === 'admin' ? <ShieldAlert className="w-6 h-6 text-[#DAA520] dark:text-[#DAA520]" /> : <User className="w-6 h-6 text-blue-300 dark:text-gray-400" />}
                         </div>
                         <div>
                           <p className="text-sm font-bold text-white dark:text-gray-100">{s.displayName}</p>
@@ -204,7 +204,7 @@ export default function AdminPanel() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className={`text-[9px] font-bold px-4 py-1.5 rounded-full border inline-block mb-1 tracking-widest ${s.role === 'admin' ? 'text-[#DAA520] dark:text-[#FFD700] border-[#DAA520] bg-[#DAA520]/5' : 'text-blue-300 dark:text-gray-400 border-[#004A8F] bg-[#003B73] dark:bg-[#1f1f1f]'}`}>
+                        <p className={`text-[9px] font-bold px-4 py-1.5 rounded-full border inline-block mb-1 tracking-widest ${s.role === 'admin' ? 'text-[#DAA520] dark:text-[#DAA520] border-[#DAA520] bg-[#DAA520]/5' : 'text-blue-300 dark:text-gray-400 border-[#004A8F] bg-[#003B73] dark:bg-[#1f1f1f]'}`}>
                           {s.role.toUpperCase()}
                         </p>
                         <p className="text-[9px] text-slate-300 font-bold uppercase mt-1 tracking-tighter hidden sm:block">Since {new Date(s.createdAt).toLocaleDateString()}</p>
@@ -221,7 +221,7 @@ export default function AdminPanel() {
               <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-[32px] space-y-6 flex flex-col justify-between">
                 <div className="flex flex-col items-center text-center">
                   <div className="w-16 h-16 bg-[#DAA520]/10 rounded-3xl flex items-center justify-center mb-4">
-                    <MapPin className="w-8 h-8 text-[#DAA520] dark:text-[#FFD700]" />
+                    <MapPin className="w-8 h-8 text-[#DAA520] dark:text-[#DAA520]" />
                   </div>
                   <h3 className="text-sm font-bold font-mono text-white dark:text-gray-100 uppercase tracking-widest">Region Mapping</h3>
                   <p className="text-xs text-blue-200 dark:text-gray-300 leading-relaxed mt-2">Initialize Maafannu districts. This is required for valid voter registration and geospatial grouping.</p>
@@ -387,7 +387,7 @@ function ConfigModal({ config, onClose }: { config: CampaignConfig, onClose: () 
               <p className="text-[10px] text-blue-300 dark:text-gray-400 font-bold uppercase tracking-widest">Global Parameters</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-10 h-10 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] flex items-center justify-center text-blue-300 dark:text-gray-400 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]">
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] flex items-center justify-center text-blue-300 dark:text-gray-400 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -397,7 +397,7 @@ function ConfigModal({ config, onClose }: { config: CampaignConfig, onClose: () 
             <label className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">Election Name</label>
             <input 
               required
-              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]"
               placeholder="e.g. 2026 Presidential Election"
               value={electionName}
               onChange={(e) => setElectionName(e.target.value)}
@@ -408,7 +408,7 @@ function ConfigModal({ config, onClose }: { config: CampaignConfig, onClose: () 
             <input 
               required
               type="date"
-              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-white dark:text-gray-100"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] text-white dark:text-gray-100"
               style={{ colorScheme: 'dark' }}
               value={electionDate}
               onChange={(e) => setElectionDate(e.target.value)}
@@ -420,7 +420,7 @@ function ConfigModal({ config, onClose }: { config: CampaignConfig, onClose: () 
               required
               type="number"
               min="0"
-              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]"
               placeholder="5000"
               value={targetVotes}
               onChange={(e) => setTargetVotes(parseInt(e.target.value) || 0)}
@@ -476,7 +476,7 @@ function StaffAddModal({ onClose }: { onClose: () => void }) {
       >
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-[#DAA520] dark:text-[#FFD700]">
+            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-[#DAA520] dark:text-[#DAA520]">
               <UserPlus className="w-6 h-6" />
             </div>
             <div>
@@ -484,7 +484,7 @@ function StaffAddModal({ onClose }: { onClose: () => void }) {
               <p className="text-[10px] text-blue-300 dark:text-gray-400 font-bold uppercase tracking-widest">Protocol Initiation</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-10 h-10 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] flex items-center justify-center text-blue-300 dark:text-gray-400 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]">
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-[#003B73] dark:bg-[#1f1f1f] flex items-center justify-center text-blue-300 dark:text-gray-400 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -494,7 +494,7 @@ function StaffAddModal({ onClose }: { onClose: () => void }) {
             <label className="text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest">Operational Name</label>
             <input 
               required
-              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]"
               placeholder="e.g. Ahmed Staff"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -505,7 +505,7 @@ function StaffAddModal({ onClose }: { onClose: () => void }) {
             <input 
               required
               type="email"
-              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]"
               placeholder="verified-email@domain.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -531,7 +531,7 @@ function StaffAddModal({ onClose }: { onClose: () => void }) {
               <button 
                 type="button"
                 onClick={() => setRole('admin')}
-                className={`flex-1 py-4 rounded-xl border text-[10px] font-bold transition-all ${role === 'admin' ? 'bg-[#DAA520] text-white dark:text-gray-100 border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] shadow-lg shadow-[#DAA520]/20' : 'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'}`}
+                className={`flex-1 py-4 rounded-xl border text-[10px] font-bold transition-all ${role === 'admin' ? 'bg-[#DAA520] text-white dark:text-gray-100 border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] shadow-lg shadow-[#DAA520]/20' : 'bg-[#002B5B] dark:bg-[#141414] border-[#004A8F] dark:border-[#333333] text-blue-300 dark:text-gray-400 hover:bg-[#003B73] dark:hover:bg-[#2a2a2a] dark:bg-[#1f1f1f]'}`}
               >
                 ADMIN
               </button>
@@ -541,7 +541,7 @@ function StaffAddModal({ onClose }: { onClose: () => void }) {
             disabled={saving}
             className="w-full py-5 bg-slate-900 text-white dark:text-gray-100 rounded-[24px] font-bold uppercase tracking-[0.2em] text-[10px] mt-4 hover:bg-slate-800 flex items-center justify-center gap-3 transition-all shadow-xl shadow-slate-900/10"
           >
-            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />}
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4 text-[#DAA520] dark:text-[#DAA520]" />}
             Confirm Authorization
           </button>
         </form>

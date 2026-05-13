@@ -227,7 +227,7 @@ export default function BulkUpload() {
       )}
 
       <div className="bg-[#002B5B] dark:bg-[#141414] border border-[#004A8F] dark:border-[#333333] p-8 rounded-3xl shadow-sm">
-        <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#004A8F] dark:border-[#333333] rounded-2xl p-10 bg-[#003B73] dark:bg-[#1f1f1f] gap-4 transition-colors hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] relative">
+        <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#004A8F] dark:border-[#333333] rounded-2xl p-10 bg-[#003B73] dark:bg-[#1f1f1f] gap-4 transition-colors hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] relative">
           <UploadCloud className="w-10 h-10 text-blue-300 dark:text-gray-400" />
           <div className="text-center">
             <p className="text-sm font-bold text-blue-100 dark:text-gray-400">Drop PDF file here or click to browse</p>
@@ -267,7 +267,7 @@ export default function BulkUpload() {
               <span>{progressStatus}</span>
               <span>{progressPercent}%</span>
             </div>
-            <div className="w-full bg-[#FFD700] dark:bg-[#050505] rounded-full h-3 overflow-hidden">
+            <div className="w-full bg-[#DAA520] dark:bg-[#050505] rounded-full h-3 overflow-hidden">
               <motion.div 
                 className="bg-black h-full rounded-full"
                 initial={{ width: 0 }}

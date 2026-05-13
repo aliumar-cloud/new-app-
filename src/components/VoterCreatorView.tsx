@@ -219,12 +219,12 @@ export default function VoterCreatorView() {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-[#DAA520] shadow-2xl shadow-[#DAA520]/20 rounded-3xl flex items-center justify-center text-white dark:text-gray-100">
+          <div className="w-16 h-16 bg-slate-900 shadow-2xl shadow-slate-900/20 rounded-3xl flex items-center justify-center text-white dark:text-gray-100">
             <UserPlus className="w-8 h-8" />
           </div>
           <div>
-            <h2 className="text-3xl font-black tracking-tight text-white dark:text-gray-100 uppercase">Registry <span className="text-[#DAA520] dark:text-[#FFD700]">Expansion</span></h2>
-            <p className="text-xs font-bold text-blue-300 dark:text-gray-400 tracking-[0.2em] uppercase mt-1">Authorized Data Intake Protocol</p>
+            <h2 className="text-3xl font-black tracking-tight text-white dark:text-gray-100 uppercase">Registry <span className="text-[#DAA520]">Expansion</span></h2>
+            <p className="text-xs font-bold text-slate-500 dark:text-gray-400 tracking-[0.2em] uppercase mt-1">Authorized Data Intake Protocol</p>
           </div>
         </div>
         
@@ -256,7 +256,7 @@ export default function VoterCreatorView() {
           <div className="flex flex-col md:flex-row gap-10 items-start">
             {/* Photo Section */}
             <div className="w-full md:w-auto flex flex-col items-center gap-4">
-              <div className="w-32 h-32 md:w-40 md:h-40 bg-[#003B73] dark:bg-[#1f1f1f] border-2 border-dashed border-[#004A8F] dark:border-[#333333] rounded-[32px] flex items-center justify-center text-slate-300 overflow-hidden relative shadow-inner group-hover:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/30 dark:border-[#FFD700] dark:border-[#333333]/30 transition-colors">
+              <div className="w-32 h-32 md:w-40 md:h-40 bg-slate-100 dark:bg-[#1f1f1f] border-2 border-dashed border-slate-300 dark:border-[#333333] rounded-[32px] flex items-center justify-center text-slate-300 overflow-hidden relative shadow-inner group-hover:border-[#DAA520] transition-colors">
                 {formData.photoUrl ? (
                   <img src={formData.photoUrl} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
@@ -264,19 +264,19 @@ export default function VoterCreatorView() {
                 )}
                 {uploading && (
                   <div className="absolute inset-0 bg-[#002B5B] dark:bg-[#141414]/60 backdrop-blur-sm flex items-center justify-center">
-                    <RefreshCw className="w-6 h-6 animate-spin text-[#DAA520] dark:text-[#FFD700]" />
+                    <RefreshCw className="w-6 h-6 animate-spin text-[#DAA520]" />
                   </div>
                 )}
               </div>
               <div className="flex flex-col gap-2">
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-all">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#DAA520] dark:text-[#DAA520] transition-all">
                     <Upload className="w-3 h-3" /> Library
                   </button>
-                  <button type="button" onClick={() => cameraInputRef.current?.click()} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-all">
+                  <button type="button" onClick={() => cameraInputRef.current?.click()} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#DAA520] dark:text-[#DAA520] transition-all">
                     <Camera className="w-3 h-3" /> Capture
                   </button>
-                  <button type="button" onClick={handleClipboardPaste} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] transition-all">
+                  <button type="button" onClick={handleClipboardPaste} className="px-3 py-1.5 bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-lg text-[9px] font-bold text-blue-200 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5 hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#DAA520] dark:text-[#DAA520] transition-all">
                     <Clipboard className="w-3 h-3" /> Paste
                   </button>
                 </div>
@@ -291,13 +291,13 @@ export default function VoterCreatorView() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-blue-300 dark:text-gray-400 uppercase tracking-[0.2em] px-1 flex items-center gap-2">
-                    <AlertCircle className="w-3 h-3 text-[#DAA520] dark:text-[#FFD700]" />
+                    <AlertCircle className="w-3 h-3 text-[#DAA520] dark:text-[#DAA520]" />
                     Voter ID
                   </label>
                   <input 
                     required
                     placeholder="e.g. A012345"
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-4 px-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] outline-none transition-all"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-4 px-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] outline-none transition-all"
                     value={formData.voterId}
                     onChange={(e) => setFormData({...formData, voterId: e.target.value})}
                   />
@@ -307,7 +307,7 @@ export default function VoterCreatorView() {
                   <input 
                     required
                     placeholder="Full legal name"
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-4 px-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] outline-none transition-all"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-4 px-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] outline-none transition-all"
                     value={formData.fullName}
                     onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                   />
@@ -320,7 +320,7 @@ export default function VoterCreatorView() {
                   <input 
                     type="tel"
                     placeholder="+960 777-7777"
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-4 px-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] outline-none transition-all"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-4 px-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] outline-none transition-all"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   />
@@ -329,7 +329,7 @@ export default function VoterCreatorView() {
                   <label className="text-[10px] font-black text-blue-300 dark:text-gray-400 uppercase tracking-[0.2em] px-1">Polling Station</label>
                   <input 
                     placeholder="e.g. Ward 1 Station"
-                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-4 px-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] outline-none transition-all"
+                    className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-2xl py-4 px-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] outline-none transition-all"
                     value={formData.pollingStation}
                     onChange={(e) => setFormData({...formData, pollingStation: e.target.value})}
                   />
@@ -346,7 +346,7 @@ export default function VoterCreatorView() {
             <textarea 
               required
               placeholder="e.g. M. Victory House, 2nd Floor, Male'"
-              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-[28px] p-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] outline-none transition-all min-h-[100px] resize-none"
+              className="w-full bg-[#003B73] dark:bg-[#1f1f1f] border border-[#004A8F] dark:border-[#333333] rounded-[28px] p-6 text-sm font-semibold focus:ring-2 focus:ring-[#DAA520]/20 focus:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] outline-none transition-all min-h-[100px] resize-none"
               value={formData.address}
               onChange={(e) => setFormData({...formData, address: e.target.value})}
             />
@@ -358,7 +358,7 @@ export default function VoterCreatorView() {
                 {[
                   { value: 'strong_support', label: 'Strong Support', color: 'bg-emerald-500 text-white dark:text-gray-100' },
                   { value: 'lean_support', label: 'Lean Support', color: 'bg-emerald-100 text-emerald-700' },
-                  { value: 'undecided', label: 'Undecided', color: 'bg-[#FFD700] dark:bg-[#050505] text-blue-200 dark:text-gray-300' },
+                  { value: 'undecided', label: 'Undecided', color: 'bg-[#DAA520] dark:bg-[#050505] text-blue-200 dark:text-gray-300' },
                   { value: 'lean_opposition', label: 'Lean Oppose', color: 'bg-rose-100 text-rose-700' },
                   { value: 'strong_opposition', label: 'Strong Oppose', color: 'bg-rose-500 text-white dark:text-gray-100' }
                 ].map((option) => (
@@ -369,7 +369,7 @@ export default function VoterCreatorView() {
                     className={`py-4 px-2 rounded-2xl text-[10px] font-black uppercase tracking-tighter transition-all ${
                       formData.supportLevel === option.value 
                         ? `${option.color} ring-4 ring-offset-2 ring-slate-100 scale-105 shadow-xl` 
-                        : 'bg-[#003B73] dark:bg-[#1f1f1f] text-blue-300 dark:text-gray-400 hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'
+                        : 'bg-[#003B73] dark:bg-[#1f1f1f] text-blue-300 dark:text-gray-400 hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505]'
                     }`}
                   >
                     {option.label}
@@ -388,7 +388,7 @@ export default function VoterCreatorView() {
               disabled={saving} 
               className="w-full sm:w-auto bg-slate-900 text-white dark:text-gray-100 font-black px-16 py-5 rounded-[24px] flex items-center justify-center gap-4 hover:bg-slate-800 transition-all shadow-2xl shadow-slate-900/10 disabled:opacity-50"
             >
-              {saving ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5 text-[#DAA520] dark:text-[#FFD700]" />}
+              {saving ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5 text-[#DAA520] dark:text-[#DAA520]" />}
               <span className="text-xs uppercase tracking-[0.2em]">Initiate Record Intake</span>
             </button>
           </div>

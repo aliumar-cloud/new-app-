@@ -6,8 +6,18 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, onSnap
 import { getStorage } from 'firebase/storage';
 import firebaseConfigSettings from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfigSettings);
-export const db = getFirestore(app, firebaseConfigSettings.firestoreDatabaseId);
+const config = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigSettings.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigSettings.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfigSettings.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigSettings.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigSettings.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigSettings.appId,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || firebaseConfigSettings.firestoreDatabaseId,
+};
+
+const app = initializeApp(config);
+export const db = getFirestore(app, config.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();

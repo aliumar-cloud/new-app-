@@ -184,7 +184,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
         <div className={`w-full md:w-80 bg-[#002B5B] dark:bg-[#141414] rounded-3xl border border-[#004A8F] dark:border-[#333333] p-6 flex-col gap-4 shadow-sm order-2 md:order-1 flex`}>
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-blue-50 dark:text-gray-300 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#FFD700]" />
+              <MapPin className="w-4 h-4 text-[#DAA520] dark:text-[#DAA520]" />
               Geospatial Linking
             </h2>
             {(isLinking || droppedPin) && (
@@ -207,21 +207,21 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                 {droppedPin ? "Select Voter for Pin" : "Unmapped Voters"}
               </p>
               {droppedPin && (
-                <div className="bg-[#DAA520]/10 border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20 rounded-xl p-3">
-                  <p className="text-xs text-[#DAA520] dark:text-[#FFD700] font-semibold flex items-center gap-2">
+                <div className="bg-[#DAA520]/10 border border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/20 dark:border-[#DAA520] dark:border-[#333333]/20 rounded-xl p-3">
+                  <p className="text-xs text-[#DAA520] dark:text-[#DAA520] font-semibold flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
                     Pin Ready!
                   </p>
                   <p className="text-[10px] text-blue-200 dark:text-gray-300 mt-1 mb-3">Select a voter below to link to this pin's location, or click somewhere else to move it.</p>
-                  <div className="pt-3 border-t border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/20 dark:border-[#FFD700] dark:border-[#333333]/20">
-                    <p className="text-[10px] font-bold text-[#DAA520] dark:text-[#FFD700] mb-2 uppercase tracking-wider">Or Quick Add Voter:</p>
+                  <div className="pt-3 border-t border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/20 dark:border-[#DAA520] dark:border-[#333333]/20">
+                    <p className="text-[10px] font-bold text-[#DAA520] dark:text-[#DAA520] mb-2 uppercase tracking-wider">Or Quick Add Voter:</p>
                     <div className="flex gap-2">
                       <input 
                         type="text" 
                         placeholder="Voter Full Name"
                         value={quickAddName}
                         onChange={(e) => setQuickAddName(e.target.value)}
-                        className="flex-1 min-w-0 bg-[#002B5B] dark:bg-[#141414] border border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/30 dark:border-[#FFD700] dark:border-[#333333]/30 rounded-lg px-2 py-2 text-xs focus:ring-1 focus:ring-[#DAA520] outline-none"
+                        className="flex-1 min-w-0 bg-[#002B5B] dark:bg-[#141414] border border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/30 dark:border-[#DAA520] dark:border-[#333333]/30 rounded-lg px-2 py-2 text-xs focus:ring-1 focus:ring-[#DAA520] outline-none"
                         onKeyPress={(e) => e.key === 'Enter' && handleQuickAdd()}
                       />
                       <button 
@@ -257,7 +257,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                     >
                       <span className="text-xs font-bold text-white dark:text-gray-100 uppercase flex items-center gap-2">
                         {collapsedGroups.has(station) ? <ChevronRight className="w-4 h-4 text-blue-300 dark:text-gray-400" /> : <ChevronDown className="w-4 h-4 text-blue-300 dark:text-gray-400" />}
-                        <MapPin className="w-3 h-3 text-[#DAA520] dark:text-[#FFD700]" />
+                        <MapPin className="w-3 h-3 text-[#DAA520] dark:text-[#DAA520]" />
                         {station}
                       </span>
                       <span className="text-[9px] text-blue-300 dark:text-gray-400 font-mono">{groupVoters.length}</span>
@@ -275,9 +275,9 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                                 setIsLinking(true);
                               }
                             }}
-                            className="w-full text-left p-3 rounded-xl border border-[#004A8F] dark:border-[#333333] hover:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/30 dark:border-[#FFD700] dark:border-[#333333]/30 hover:bg-[#DAA520]/5 transition-all group"
+                            className="w-full text-left p-3 rounded-xl border border-[#004A8F] dark:border-[#333333] hover:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/30 dark:border-[#DAA520] dark:border-[#333333]/30 hover:bg-[#DAA520]/5 transition-all group"
                           >
-                            <p className="text-xs font-bold text-blue-100 dark:text-gray-400 group-hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700]">{v.fullName}</p>
+                            <p className="text-xs font-bold text-blue-100 dark:text-gray-400 group-hover:text-[#DAA520] dark:hover:text-[#DAA520] dark:text-[#DAA520]">{v.fullName}</p>
                             <p className="text-[10px] text-blue-300 dark:text-gray-400 mt-1">{v.address}</p>
                             <div className="flex items-center gap-2 mt-2">
                               <span className="text-[9px] font-mono text-slate-400">#{v.voterId.slice(0, 8)}</span>
@@ -298,13 +298,13 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
           ) : (
             <div className="space-y-6 flex-1 flex flex-col items-center justify-center text-center p-4">
               <div className="w-16 h-16 bg-[#DAA520]/10 rounded-full flex items-center justify-center animate-bounce mb-2">
-                <MapPin className="w-7 h-7 text-[#DAA520] dark:text-[#FFD700]" />
+                <MapPin className="w-7 h-7 text-[#DAA520] dark:text-[#DAA520]" />
               </div>
               <div>
                 <p className="text-sm font-bold text-blue-50 dark:text-gray-300">Assigning Location</p>
                 <p className="text-[10px] text-blue-200 dark:text-gray-300 mt-1 leading-relaxed">
                   Click on the map to pin <br/>
-                  <span className="text-[#DAA520] dark:text-[#FFD700] font-bold">{selectedVoterForPin?.fullName}</span> <br/>
+                  <span className="text-[#DAA520] dark:text-[#DAA520] font-bold">{selectedVoterForPin?.fullName}</span> <br/>
                   to that location.
                 </p>
               </div>
@@ -325,7 +325,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                     setIsLinking(false);
                     setSelectedVoterForPin(null);
                   }}
-                  className="w-full py-3 bg-[#003B73] dark:bg-[#1f1f1f] rounded-xl text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest hover:bg-[#FFD700] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
+                  className="w-full py-3 bg-[#003B73] dark:bg-[#1f1f1f] rounded-xl text-[10px] font-bold text-blue-300 dark:text-gray-400 uppercase tracking-widest hover:bg-[#DAA520] dark:hover:bg-[#2a2a2a] dark:bg-[#050505] transition-all"
                 >
                   Cancel Operation
                 </button>
@@ -340,7 +340,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
             <div className="absolute top-4 right-4 z-[2000] flex flex-col md:flex-row gap-2 items-end md:items-start">
                <button 
                   onClick={() => setIsPinMode(!isPinMode)}
-                  className={`bg-[#002B5B] dark:bg-[#141414] px-4 py-2 rounded-xl shadow-md border ${isPinMode ? 'border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333] text-[#DAA520] dark:text-[#FFD700] bg-[#DAA520]/10' : 'border-[#004A8F] dark:border-[#333333] text-blue-50 dark:text-gray-300'} text-xs font-bold`}
+                  className={`bg-[#002B5B] dark:bg-[#141414] px-4 py-2 rounded-xl shadow-md border ${isPinMode ? 'border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333] text-[#DAA520] dark:text-[#DAA520] bg-[#DAA520]/10' : 'border-[#004A8F] dark:border-[#333333] text-blue-50 dark:text-gray-300'} text-xs font-bold`}
                >
                   {isPinMode ? 'Cancel Pin Drop' : 'Drop Manual Pin'}
                </button>
@@ -367,7 +367,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                   <p className="text-[10px] text-blue-200 dark:text-gray-300 mb-2">Select a voter to link.</p>
                   <button 
                     onClick={() => setDroppedPin(null)}
-                    className="w-full mt-2 py-1 bg-[#FFD700] dark:bg-[#050505] hover:bg-[#002B5B] dark:hover:bg-[#1a1a1a] dark:bg-[#141414] text-blue-100 dark:text-gray-400 text-[10px] font-bold rounded-lg transition-colors"
+                    className="w-full mt-2 py-1 bg-[#DAA520] dark:bg-[#050505] hover:bg-[#002B5B] dark:hover:bg-[#1a1a1a] dark:bg-[#141414] text-blue-100 dark:text-gray-400 text-[10px] font-bold rounded-lg transition-colors"
                   >
                     Clear Pin
                   </button>
@@ -404,7 +404,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                       {group.voters.map(v => (
                         <div key={v.voterId} className="pb-3 border-b border-[#004A8F] dark:border-[#333333] last:border-0 last:pb-0">
                           <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 rounded-full bg-[#FFD700] dark:bg-[#050505] overflow-hidden flex shadow-[0_0_0_1px_rgba(0,0,0,0.05)] items-center justify-center shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-[#DAA520] dark:bg-[#050505] overflow-hidden flex shadow-[0_0_0_1px_rgba(0,0,0,0.05)] items-center justify-center shrink-0">
                               {v.photoUrl ? (
                                 <img src={v.photoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               ) : (
@@ -423,7 +423,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                              </div>
                              {v.phone ? (
                                <a href={`tel:${v.phone}`} target="_top" onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 text-[10px] hover:opacity-80 transition-opacity">
-                                 <Phone className="w-3 h-3 text-[#DAA520] dark:text-[#FFD700]" />
+                                 <Phone className="w-3 h-3 text-[#DAA520] dark:text-[#DAA520]" />
                                  <span className="text-blue-200 dark:text-gray-300 font-semibold">{v.phone}</span>
                                </a>
                              ) : (
@@ -457,7 +457,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                               </button>
                               <button 
                                 onClick={() => onSelectVoter?.(v)}
-                                className="text-[9px] font-bold text-[#DAA520] dark:text-[#FFD700] hover:underline"
+                                className="text-[9px] font-bold text-[#DAA520] dark:text-[#DAA520] hover:underline"
                               >
                                 View
                               </button>
@@ -468,7 +468,7 @@ export default function MapView({ onSelectVoter }: { onSelectVoter?: (voter: Vot
                     </div>
                     <button 
                       onClick={() => setDroppedPin({ lat: group.lat, lng: group.lng })}
-                      className="w-full sticky bottom-0 bg-[#FFD700] dark:bg-[#050505] hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#FFD700] dark:text-[#FFD700] text-blue-100 dark:text-gray-400 p-2 text-[10px] font-bold rounded-lg transition-colors border border-[#004A8F] dark:border-[#333333] hover:border-[#DAA520] dark:border-[#FFD700] dark:border-[#333333]/30 dark:border-[#FFD700] dark:border-[#333333]/30"
+                      className="w-full sticky bottom-0 bg-[#DAA520] dark:bg-[#050505] hover:bg-[#DAA520]/10 hover:text-[#DAA520] dark:hover:text-[#DAA520] dark:text-[#DAA520] text-blue-100 dark:text-gray-400 p-2 text-[10px] font-bold rounded-lg transition-colors border border-[#004A8F] dark:border-[#333333] hover:border-[#DAA520] dark:border-[#DAA520] dark:border-[#333333]/30 dark:border-[#DAA520] dark:border-[#333333]/30"
                     >
                       Add Voter to this Location
                     </button>
